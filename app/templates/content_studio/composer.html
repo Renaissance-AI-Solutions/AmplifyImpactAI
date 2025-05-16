@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+
+{% block title %}Post Composer - Amplify Impact Pro{% endblock %}
+
+{% block extra_head %}
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Post Composer -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Post Composer</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('content_studio_bp.composer') }}" id="post-form">
+                    {{ form.hidden_tag() }}
+                    
+                    <!-- Topic -->
+                    <div class="mb-3">
+                        {{ form.topic.label(class="form-label") }}
+                        {{ form.topic(class="form-control") }}
+                        {% for error in form.topic.errors %}
+                            <div class="invalid-feedback d-block">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- Tone and Style -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            {{ form.tone.label(class="form-label") }}
+                            {{ form.tone(class="form-control") }}
+                            {% for error in form.tone.errors %}
+                                <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.style.label(class="form-label") }}
+                            {{ form.style(class="form-control") }}
+                            {% for error in form.style.errors %}
+                                <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <!-- Content Editor -->
+                    <div class="mb-3">
+                        <label class="form-label">Content</label>
+                        <div id="editor" class="mb-3"></div>
+                        {{ form.content(id="content-input", type="hidden") }}
+                    </div>
+                    
+                    <!-- AI Generation -->
+                    <div class="mb-3">
+                        <button type="button" class="btn btn-info" id="generate-ai-content">
+                            <i class="fas fa-robot"></i> Generate with AI
+                        </button>
+                        
+                        <!-- Generated Content Preview -->
+                        <div class="mt-3" id="generated-content-preview" style="display: none;">
+                            <h6>Generated Content Preview:</h6>
+                            <div class="bg-light p-3 rounded">
+                                {{ form.generated_content_display(class="form-control", readonly=True) }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Target Account -->
+                    <div class="mb-3">
+                        {{ form.target_account_id.label(class="form-label") }}
+                        {{ form.target_account_id(class="form-select") }}
+                        {% for error in form.target_account_id.errors %}
+                            <div class="invalid-feedback d-block">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- Schedule Post -->
+                    <div class="mb-3" id="schedule-section" style="display: none;">
+                        <h6>Schedule Post</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                {{ schedule_form.scheduled_time.label(class="form-label") }}
+                                {{ schedule_form.scheduled_time(class="form-control datetimepicker") }}
+                                {% for error in schedule_form.scheduled_time.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            <div class="col-md-6">
+                                {{ schedule_form.target_account_id_schedule.label(class="form-label") }}
+                                {{ schedule_form.target_account_id_schedule(class="form-select") }}
+                                {% for error in schedule_form.target_account_id_schedule.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="d-flex gap-2">
+                        {{ form.post_now(class="btn btn-primary w-100 mb-2", id="post-now") }}
+                        {{ form.schedule_post_action(class="btn btn-success", id="schedule-post") }}
+                        {{ form.generate_with_ai(class="btn btn-info", id="generate-ai") }}
+                        {{ form.save_draft_action(class="btn btn-info w-100", id="save-draft") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Knowledge Base Sidebar -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Knowledge Base</h5>
+            </div>
+            <div class="card-body">
+                <!-- Search -->
+                <div class="mb-3">
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="knowledge-search" placeholder="Search knowledge base...">
+                        <button class="btn btn-outline-secondary" type="button" id="search-knowledge">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Search Results -->
+                <div id="knowledge-results" class="list-group list-group-flush">
+                    <!-- Results will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap-datetimepicker@4.17.47/js/bootstrap-datetimepicker.min.js"></script>
+<script>
+    // Initialize Quill editor
+    var quill = new Quill('#editor', {
+        theme: 'snow',
+        modules: {
+            toolbar: [
+                ['bold', 'italic', 'underline'],
+                ['link', 'image'],
+                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                [{ 'header': [1, 2, 3, 4, 5, 6, false] }]
+            ]
+        }
+    });
+
+    // Update hidden content field on change
+    quill.on('text-change', function() {
+        var content = quill.root.innerHTML;
+        document.getElementById('content-input').value = content;
+    });
+
+    // Initialize datetime picker
+    $('.datetimepicker').datetimepicker({
+        format: 'YYYY-MM-DD HH:mm',
+        sideBySide: true
+    });
+
+    // Handle AI generation
+    $('#generate-ai-content').on('click', function() {
+        var topic = $('#topic').val();
+        var tone = $('#tone').val();
+        var style = $('#style').val();
+
+        if (!topic || !tone || !style) {
+            alert('Please fill in topic, tone, and style before generating content.');
+            return;
+        }
+
+        $(this).prop('disabled', true);
+        $(this).find('i').addClass('fa-spin');
+
+        $.ajax({
+            url: '/content-studio/generate-ai-content',
+            method: 'POST',
+            data: {
+                topic: topic,
+                tone: tone,
+                style: style
+            },
+            success: function(response) {
+                quill.clipboard.dangerouslyPasteHTML(response.content);
+                $('#generated-content-preview').show();
+                $('#generated_content_display').val(response.content);
+            },
+            error: function(xhr) {
+                alert('Error generating AI content: ' + xhr.responseText);
+            },
+            complete: function() {
+                $('#generate-ai-content').prop('disabled', false);
+                $('#generate-ai-content').find('i').removeClass('fa-spin');
+            }
+        });
+    });
+
+    // Handle post now
+    $('#post-now').on('click', function(e) {
+        e.preventDefault();
+        
+        if (!quill.getText().trim()) {
+            alert('Please enter some content before posting.');
+            return;
+        }
+
+        $(this).prop('disabled', true);
+        $(this).find('i').addClass('fa-spin');
+
+        $.ajax({
+            url: '/content-studio/post-now',
+            method: 'POST',
+            data: {
+                content: quill.root.innerHTML,
+                target_account_id: $('#target_account_id').val()
+            },
+            success: function(response) {
+                alert('Post published successfully!');
+                window.location.reload();
+            },
+            error: function(xhr) {
+                alert('Error publishing post: ' + xhr.responseText);
+            },
+            complete: function() {
+                $('#post-now').prop('disabled', false);
+                $('#post-now').find('i').removeClass('fa-spin');
+            }
+        });
+    });
+
+    // Handle schedule post
+    $('#schedule-post').on('click', function(e) {
+        e.preventDefault();
+        
+        if (!quill.getText().trim()) {
+            alert('Please enter some content before scheduling.');
+            return;
+        }
+
+        $('#schedule-section').slideToggle();
+    });
+
+    // Handle knowledge base search
+    $('#search-knowledge').on('click', function() {
+        var query = $('#knowledge-search').val();
+        
+        if (!query.trim()) {
+            alert('Please enter a search term.');
+            return;
+        }
+
+        $(this).prop('disabled', true);
+        $(this).find('i').addClass('fa-spin');
+
+        $.ajax({
+            url: '/knowledge-base/search',
+            method: 'POST',
+            data: { query: query },
+            success: function(response) {
+                var results = response.results;
+                var resultsHtml = '';
+                
+                if (results.length === 0) {
+                    resultsHtml = '<p class="text-muted">No results found.</p>';
+                } else {
+                    results.forEach(function(result) {
+                        resultsHtml += `
+                            <div class="list-group-item">
+                                <h6 class="mb-1">${result.title}</h6>
+                                <p class="mb-1">${result.content}</p>
+                                <small class="text-muted">Relevance: ${(result.score * 100).toFixed(1)}%</small>
+                            </div>
+                        `;
+                    });
+                }
+                
+                $('#knowledge-results').html(resultsHtml);
+            },
+            error: function(xhr) {
+                alert('Error searching knowledge base: ' + xhr.responseText);
+            },
+            complete: function() {
+                $('#search-knowledge').prop('disabled', false);
+                $('#search-knowledge').find('i').removeClass('fa-spin');
+            }
+        });
+    });
+</script>
+{% endblock %}

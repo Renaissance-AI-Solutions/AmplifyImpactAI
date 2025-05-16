@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Amplify Impact Pro{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Quick Actions -->
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Quick Actions</h5>
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <a href="{{ url_for('content_studio_bp.composer') }}" class="btn btn-primary w-100">
+                            <i class="fas fa-pen-alt"></i> Create Post
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{{ url_for('engagement_bp.index') }}" class="btn btn-info w-100">
+                            <i class="fas fa-comments"></i> Manage Comments
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{{ url_for('accounts_bp.manage_accounts') }}" class="btn btn-success w-100">
+                            <i class="fas fa-user-plus"></i> Connect Account
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{{ url_for('kb_bp.upload') }}" class="btn btn-warning w-100">
+                            <i class="fas fa-book"></i> Add Knowledge
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Recent Posts</h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    {% for post in recent_posts %}
+                    <div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">{{ post.content[:50] }}...</h6>
+                            <small class="text-muted">{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                        </div>
+                        <small class="text-muted">Posted to: {{ post.managed_account.account_display_name }}</small>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Comments -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Recent Comments</h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    {% for comment in recent_comments %}
+                    <div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">{{ comment.suggested_comment_text[:50] }}...</h6>
+                            <small class="text-muted">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                        </div>
+                        <small class="text-muted">Status: {{ comment.status }}</small>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

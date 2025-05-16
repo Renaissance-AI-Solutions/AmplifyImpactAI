@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold mb-4">Generate Posts from Knowledge Base</h1>
+        <p class="text-gray-600">Select a document and customize your post generation settings.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <!-- Document Selection and Topics -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold mb-4">1. Select Document & Extract Topics</h2>
+            <select id="documentSelect" class="w-full p-2 border rounded mb-4">
+                <option value="">Select a document...</option>
+                {% for doc in documents %}
+                <option value="{{ doc.id }}">{{ doc.original_filename }}</option>
+                {% endfor %}
+            </select>
+
+            <button id="extractTopics" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 mb-4">
+                Extract Topics
+            </button>
+
+            <div id="topicsContainer" class="hidden">
+                <h3 class="font-semibold mb-2">Extracted Topics:</h3>
+                <div id="topicsList" class="space-y-2">
+                    <!-- Topics will be inserted here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Post Generation Settings -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold mb-4">2. Configure Post Settings</h2>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-2">Template Type</label>
+                <select id="templateType" class="w-full p-2 border rounded">
+                    <option value="informational">Informational</option>
+                    <option value="promotional">Promotional</option>
+                    <option value="educational">Educational</option>
+                    <option value="engagement">Engagement</option>
+                </select>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-2">Social Media Account</label>
+                <select id="accountSelect" class="w-full p-2 border rounded">
+                    <option value="">Select an account...</option>
+                    {% for account in accounts %}
+                    <option value="{{ account.id }}">{{ account.platform_name }}: {{ account.account_display_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-2">Schedule Time</label>
+                <input type="datetime-local" id="scheduleTime" class="w-full p-2 border rounded">
+            </div>
+
+            <button id="generatePost" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                Generate Post
+            </button>
+        </div>
+
+        <!-- Generated Post Preview -->
+        <div class="bg-white rounded-lg shadow p-6 md:col-span-2">
+            <h2 class="text-xl font-semibold mb-4">3. Preview Generated Post</h2>
+            <div id="postPreview" class="hidden">
+                <div class="mb-4">
+                    <h3 class="font-semibold mb-2">Post Content:</h3>
+                    <div id="postContent" class="p-4 bg-gray-50 rounded border"></div>
+                </div>
+                <div class="mb-4">
+                    <h3 class="font-semibold mb-2">Schedule Information:</h3>
+                    <div id="scheduleInfo" class="text-gray-600"></div>
+                </div>
+                <div class="flex space-x-4">
+                    <button id="schedulePost" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                        Schedule Post
+                    </button>
+                    <button id="regeneratePost" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+                        Regenerate
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Success/Error Toast -->
+<div id="toast" class="fixed bottom-4 right-4 hidden">
+    <div class="px-6 py-4 rounded-lg text-white">
+        <span id="toastMessage"></span>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let currentTopics = [];
+    let selectedTopic = null;
+    
+    // Extract topics when document is selected
+    document.getElementById('extractTopics').addEventListener('click', async function() {
+        const documentId = document.getElementById('documentSelect').value;
+        if (!documentId) {
+            showToast('Please select a document first', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/document/${documentId}/topics`);
+            const data = await response.json();
+            
+            if (data.success) {
+                currentTopics = data.topics;
+                displayTopics(data.topics);
+            } else {
+                throw new Error(data.error);
+            }
+        } catch (error) {
+            showToast(error.message || 'Failed to extract topics', 'error');
+        }
+    });
+
+    // Generate post when button is clicked
+    document.getElementById('generatePost').addEventListener('click', async function() {
+        const documentId = document.getElementById('documentSelect').value;
+        const accountId = document.getElementById('accountSelect').value;
+        const templateType = document.getElementById('templateType').value;
+        const scheduleTime = document.getElementById('scheduleTime').value;
+
+        if (!documentId || !accountId) {
+            showToast('Please select both document and account', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/generate-post', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    document_id: documentId,
+                    managed_account_id: accountId,
+                    template_type: templateType,
+                    scheduled_time: scheduleTime ? new Date(scheduleTime).toISOString() : null
+                })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                displayGeneratedPost(data.post);
+                showToast('Post generated successfully!');
+            } else {
+                throw new Error(data.error);
+            }
+        } catch (error) {
+            showToast(error.message || 'Failed to generate post', 'error');
+        }
+    });
+
+    // Schedule post when button is clicked
+    document.getElementById('schedulePost').addEventListener('click', async function() {
+        showToast('Post scheduled successfully!');
+        // The post is already scheduled when generated, this is just for UX feedback
+    });
+
+    // Regenerate post when button is clicked
+    document.getElementById('regeneratePost').addEventListener('click', function() {
+        document.getElementById('generatePost').click();
+    });
+
+    // Helper function to display topics
+    function displayTopics(topics) {
+        const container = document.getElementById('topicsContainer');
+        const list = document.getElementById('topicsList');
+        container.classList.remove('hidden');
+        
+        list.innerHTML = topics.map((topic, index) => `
+            <div class="p-2 border rounded hover:bg-gray-50 cursor-pointer ${index === 0 ? 'bg-blue-50' : ''}"
+                 data-topic-index="${index}">
+                <div class="font-medium">${topic.terms.join(', ')}</div>
+                <div class="text-sm text-gray-600">Score: ${topic.score.toFixed(2)}</div>
+                <div class="text-sm text-gray-500 truncate">${topic.sample_text || ''}</div>
+            </div>
+        `).join('');
+    }
+
+    // Helper function to display generated post
+    function displayGeneratedPost(post) {
+        const preview = document.getElementById('postPreview');
+        const content = document.getElementById('postContent');
+        const scheduleInfo = document.getElementById('scheduleInfo');
+        
+        preview.classList.remove('hidden');
+        content.textContent = post.content;
+        scheduleInfo.textContent = `Scheduled for: ${new Date(post.scheduled_time).toLocaleString()}`;
+    }
+
+    // Helper function to show toast messages
+    function showToast(message, type = 'success') {
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toastMessage');
+        
+        toast.classList.remove('hidden', 'bg-green-500', 'bg-red-500');
+        toast.classList.add(type === 'success' ? 'bg-green-500' : 'bg-red-500');
+        toastMessage.textContent = message;
+        
+        setTimeout(() => {
+            toast.classList.add('hidden');
+        }, 3000);
+    }
+});
+</script>
+{% endblock %}

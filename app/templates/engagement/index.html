@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+
+{% block title %}Engagement - Amplify Impact Pro{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Quick Actions -->
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <a href="{{ url_for('engagement_bp.settings') }}" class="btn btn-primary w-100">
+                            <i class="fas fa-cog"></i> Manage Settings
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{{ url_for('engagement_bp.index') }}#pending-comments" class="btn btn-info w-100">
+                            <i class="fas fa-comments"></i> Review Comments
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{{ url_for('engagement_bp.index') }}#recent-activity" class="btn btn-success w-100">
+                            <i class="fas fa-history"></i> View Activity
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{{ url_for('engagement_bp.index') }}#statistics" class="btn btn-warning w-100">
+                            <i class="fas fa-chart-bar"></i> View Statistics
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pending Comments -->
+    <div class="col-md-6" id="pending-comments">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Pending Comments</h5>
+            </div>
+            <div class="card-body">
+                {% if pending_comments %}
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Post</th>
+                                <th>Comment</th>
+                                <th>Created At</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for comment in pending_comments %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <i class="fab fa-twitter text-primary me-2"></i>
+                                        <div>
+                                            <h6 class="mb-0">{{ comment.target_post_id_on_platform }}</h6>
+                                            <small class="text-muted">{{ comment.target_account.account_display_name }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-comment text-info me-2"></i>
+                                        <div>
+                                            <p class="mb-0">{{ comment.suggested_comment_text }}</p>
+                                            <small class="text-muted">Confidence: {{ comment.confidence_score|round(2) }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    {{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                </td>
+                                <td>
+                                    <div class="btn-group">
+                                        <button type="button" class="btn btn-sm btn-success approve-comment" 
+                                                data-comment-id="{{ comment.id }}">
+                                            <i class="fas fa-check"></i> Approve
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-danger reject-comment" 
+                                                data-comment-id="{{ comment.id }}">
+                                            <i class="fas fa-times"></i> Reject
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <p class="text-muted">No pending comments to review.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="col-md-6" id="recent-activity">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Recent Activity</h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    {% for activity in recent_activity %}
+                    <div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">{{ activity.action_type }}</h6>
+                            <small class="text-muted">{{ activity.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                        </div>
+                        <small class="text-muted">{{ activity.details }}</small>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="col-12" id="statistics">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Statistics</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="card-title mb-0">Total Comments</h6>
+                                <h3 class="mb-0">{{ stats.total_comments }}</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="card-title mb-0">Approved Comments</h6>
+                                <h3 class="mb-0">{{ stats.approved_comments }}</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="card-title mb-0">Rejected Comments</h6>
+                                <h3 class="mb-0">{{ stats.rejected_comments }}</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="card-title mb-0">Average Confidence</h6>
+                                <h3 class="mb-0">{{ stats.average_confidence|round(2) }}</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Handle comment approval
+    $('.approve-comment').on('click', function(e) {
+        e.preventDefault();
+        var $btn = $(this);
+        var commentId = $btn.data('comment-id');
+        
+        $btn.prop('disabled', true);
+        $btn.find('i').addClass('fa-spin');
+
+        $.ajax({
+            url: '/engagement/comments/' + commentId + '/approve',
+            method: 'POST',
+            success: function(response) {
+                showNotification('Comment approved successfully!', 'success');
+                setTimeout(function() {
+                    window.location.reload();
+                }, 1000);
+            },
+            error: function(xhr) {
+                showNotification('Error approving comment: ' + xhr.responseText, 'danger');
+                $btn.prop('disabled', false);
+                $btn.find('i').removeClass('fa-spin');
+            }
+        });
+    });
+
+    // Handle comment rejection
+    $('.reject-comment').on('click', function(e) {
+        e.preventDefault();
+        var $btn = $(this);
+        var commentId = $btn.data('comment-id');
+        
+        if (confirm('Are you sure you want to reject this comment?')) {
+            $.ajax({
+                url: '/engagement/comments/' + commentId + '/reject',
+                method: 'POST',
+                success: function(response) {
+                    showNotification('Comment rejected successfully!', 'success');
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, 1000);
+                },
+                error: function(xhr) {
+                    showNotification('Error rejecting comment: ' + xhr.responseText, 'danger');
+                }
+            });
+        }
+    });
+
+    // Show notification function
+    function showNotification(message, type) {
+        var toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+
+        var toastHeader = document.createElement('div');
+        toastHeader.className = 'toast-header';
+        
+        var toastBody = document.createElement('div');
+        toastBody.className = 'toast-body';
+        toastBody.textContent = message;
+
+        toast.appendChild(toastHeader);
+        toast.appendChild(toastBody);
+        document.body.appendChild(toast);
+
+        var bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+
+        setTimeout(function() {
+            bsToast.hide();
+            toast.remove();
+        }, 5000);
+    }
+</script>
+{% endblock %}

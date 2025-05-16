@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Amplify Impact Pro{% endblock %}</title>
+    {% block styles %}
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% endblock %}
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4 sticky-top shadow-sm">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('main_bp.dashboard') }}">
+                <i class="bi bi-megaphone-fill"></i> Amplify Impact Pro
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNavDropdown">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    {% if current_user.is_authenticated %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.blueprint == 'main_bp' and request.endpoint.endswith('dashboard') %}active{% endif %}" href="{{ url_for('main_bp.dashboard') }}"><i class="bi bi-house-door-fill"></i> Dashboard</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.blueprint == 'accounts_bp' %}active{% endif %}" href="{{ url_for('accounts_bp.manage_accounts') }}"><i class="bi bi-people-fill"></i> Accounts</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.blueprint == 'kb_bp' %}active{% endif %}" href="{{ url_for('kb_bp.manage_knowledge_base') }}"><i class="bi bi-book-half"></i> Knowledge Base</a>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle {% if request.blueprint == 'content_studio_bp' %}active{% endif %}" href="#" id="contentStudioDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-pencil-square"></i> Content Studio
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="contentStudioDropdown">
+                                <li><a class="dropdown-item {% if request.endpoint.endswith('compose_post') %}active{% endif %}" href="{{ url_for('content_studio_bp.composer') }}">Compose Post</a></li>
+                                <li><a class="dropdown-item {% if request.endpoint.endswith('schedule_overview') %}active{% endif %}" href="{{ url_for('content_studio_bp.drafts') }}">Drafts & Schedule</a></li>
+                            </ul>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle {% if request.blueprint == 'engagement_bp' %}active{% endif %}" href="#" id="engagementDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-chat-dots-fill"></i> Engagement Hub
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="engagementDropdown">
+                                <li><a class="dropdown-item {% if request.endpoint.endswith('comment_settings') %}active{% endif %}" href="{{ url_for('engagement_bp.comment_settings') }}">Comment Settings</a></li>
+                                <li><a class="dropdown-item {% if request.endpoint.endswith('review_comments_queue') %}active{% endif %}" href="{{ url_for('engagement_bp.review_comments_queue') }}">Review Comments</a></li>
+                                <li><a class="dropdown-item {% if request.endpoint.endswith('comments_log') %}active{% endif %}" href="{{ url_for('engagement_bp.comments_log') }}">Comments Log</a></li>
+                            </ul>
+                        </li>
+                    {% endif %}
+                </ul>
+                <ul class="navbar-nav">
+                    {% if current_user.is_authenticated %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-person-circle"></i> {{ current_user.username }}
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                                <li><a class="dropdown-item {% if request.blueprint == 'main_bp' and request.endpoint.endswith('settings') %}active{% endif %}" href="{{ url_for('main_bp.settings') }}"><i class="bi bi-gear-fill"></i> Settings</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{{ url_for('auth_bp.logout') }}"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+                            </ul>
+                        </li>
+                    {% else %}
+                        <li class="nav-item"><a class="nav-link {% if request.endpoint.endswith('login') %}active{% endif %}" href="{{ url_for('auth_bp.login') }}">Login</a></li>
+                        <li class="nav-item"><a class="nav-link {% if request.endpoint.endswith('register') %}active{% endif %}" href="{{ url_for('auth_bp.register') }}">Register</a></li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mt-4 mb-5">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <div class="page-title-bar mb-3">
+             <h3>{% block page_title %}{% if title %}{{ title }}{% else %}Amplify Impact Pro{% endif %}{% endblock %}</h3>
+        </div>
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer mt-auto py-3 bg-light border-top fixed-bottom">
+        <div class="container text-center">
+            <span class="text-muted">© {{ current_time_utc.year }} Amplify Impact Pro. For Nonprofits.</span>
+        </div>
+    </footer>
+
+    {% block scripts %}
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-QJHtvGhmr9XOIpI6YVutG+2QOK9T+ZnN4kzFN1RtK3zEFEIsxhlmWl5/YESvpZ13" crossorigin="anonymous"></script>
+<script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    {% endblock %}
+</body>
+</html>

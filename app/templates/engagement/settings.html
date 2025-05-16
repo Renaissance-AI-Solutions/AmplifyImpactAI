@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+
+{% block title %}Engagement Settings - Amplify Impact Pro{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Engagement Settings Form -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Engagement Settings</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('engagement_bp.settings') }}" id="settings-form">
+                    {{ form.hidden_tag() }}
+                    
+                    <!-- General Settings -->
+                    <div class="mb-4">
+                        <h6>General Settings</h6>
+                        <div class="form-check">
+                            {{ form.is_active(class="form-check-input") }}
+                            {{ form.is_active.label(class="form-check-label") }}
+                        </div>
+                        <div class="form-text">
+                            Enable/disable automatic comment generation and posting.
+                        </div>
+                    </div>
+                    
+                    <!-- Platform Settings -->
+                    <div class="mb-4">
+                        <h6>Platform Settings</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                {{ form.default_posting_account_id.label(class="form-label") }}
+                                {{ form.default_posting_account_id(class="form-select") }}
+                                {% for error in form.default_posting_account_id.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                {% endfor %}
+                                <div class="form-text">
+                                    Default account for posting comments.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Comment Generation Settings -->
+                    <div class="mb-4">
+                        <h6>Comment Generation Settings</h6>
+                        <div class="row">
+                            <div class="col-md-4">
+                                {{ form.min_confidence.label(class="form-label") }}
+                                {{ form.min_confidence(class="form-control") }}
+                                {% for error in form.min_confidence.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                {% endfor %}
+                                <div class="form-text">
+                                    Minimum confidence score for auto-approval.
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                {{ form.max_length.label(class="form-label") }}
+                                {{ form.max_length(class="form-control") }}
+                                {% for error in form.max_length.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                {% endfor %}
+                                <div class="form-text">
+                                    Maximum length of generated comments.
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                {{ form.tone.label(class="form-label") }}
+                                {{ form.tone(class="form-control") }}
+                                {% for error in form.tone.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                {% endfor %}
+                                <div class="form-text">
+                                    Default tone for generated comments.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Monitoring Settings -->
+                    <div class="mb-4">
+                        <h6>Monitoring Settings</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                {{ form.monitoring_interval.label(class="form-label") }}
+                                {{ form.monitoring_interval(class="form-control") }}
+                                {% for error in form.monitoring_interval.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                {% endfor %}
+                                <div class="form-text">
+                                    How often to check for new posts (in minutes).
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                {{ form.max_comments_per_hour.label(class="form-label") }}
+                                {{ form.max_comments_per_hour(class="form-control") }}
+                                {% for error in form.max_comments_per_hour.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                {% endfor %}
+                                <div class="form-text">
+                                    Maximum comments per hour per account.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Keyword Settings -->
+                    <div class="mb-4">
+                        <h6>Keyword Settings</h6>
+                        <div class="row">
+                            <div class="col-12">
+                                {{ form.keywords.label(class="form-label") }}
+                                {{ form.keywords(class="form-control") }}
+                                {% for error in form.keywords.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                {% endfor %}
+                                <div class="form-text">
+                                    Comma-separated list of keywords to monitor.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Account Settings -->
+                    <div class="mb-4">
+                        <h6>Account Settings</h6>
+                        <div class="row">
+                            <div class="col-12">
+                                {{ form.monitored_x_accounts.label(class="form-label") }}
+                                {{ form.monitored_x_accounts(class="form-control") }}
+                                {% for error in form.monitored_x_accounts.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                {% endfor %}
+                                <div class="form-text">
+                                    Comma-separated list of X (Twitter) accounts to monitor.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Submit Button -->
+                    <div class="d-grid">
+                        {{ form.submit(class="btn btn-primary") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Handle form submission
+    $('#settings-form').on('submit', function(e) {
+        e.preventDefault();
+        
+        var form = $(this);
+        var formData = new FormData(form[0]);
+        
+        // Show loading state
+        $('#submit').prop('disabled', true);
+        $('#submit').find('i').addClass('fa-spin');
+
+        $.ajax({
+            url: '/engagement/settings',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                showNotification('Settings saved successfully!', 'success');
+                setTimeout(function() {
+                    window.location.reload();
+                }, 1000);
+            },
+            error: function(xhr) {
+                showNotification('Error saving settings: ' + xhr.responseText, 'danger');
+                $('#submit').prop('disabled', false);
+                $('#submit').find('i').removeClass('fa-spin');
+            }
+        });
+    });
+
+    // Show notification function
+    function showNotification(message, type) {
+        var toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+
+        var toastHeader = document.createElement('div');
+        toastHeader.className = 'toast-header';
+        
+        var toastBody = document.createElement('div');
+        toastBody.className = 'toast-body';
+        toastBody.textContent = message;
+
+        toast.appendChild(toastHeader);
+        toast.appendChild(toastBody);
+        document.body.appendChild(toast);
+
+        var bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+
+        setTimeout(function() {
+            bsToast.hide();
+            toast.remove();
+        }, 5000);
+    }
+</script>
+{% endblock %}

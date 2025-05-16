@@ -1,0 +1,82 @@
+{% extends "layouts/base.html" %}
+{% block title %}Manage Accounts{% endblock %}
+{% block page_title %}Connected Social Media Accounts{% endblock %}
+
+{% block content %}
+    <div class="mb-3">
+        <a href="{{ url_for('accounts_bp.add_account_start', platform_name='X') }}" class="btn btn-primary">
+            <i class="bi bi-twitter"></i> Add New X Account
+        </a>
+        <!-- Future: Add buttons for other platforms -->
+        <!-- <a href="{{ url_for('accounts_bp.add_account_start', platform_name='Facebook') }}" class="btn btn-secondary disabled">
+            <i class="bi bi-facebook"></i> Add Facebook (Coming Soon)
+        </a> -->
+    </div>
+
+    {% if accounts %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Platform</th>
+                        <th>Account Name</th>
+                        <th>Platform ID</th>
+                        <th>Status</th>
+                        <th>Added / Last Validated</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for acc in accounts %}
+                    <tr>
+                        <td>
+                            {% if acc.platform_name == 'X' %}<i class="bi bi-twitter text-primary"></i>
+                            {% elif acc.platform_name == 'Facebook' %}<i class="bi bi-facebook text-primary"></i>
+                            {% else %}<i class="bi bi-person-bounding-box"></i>
+                            {% endif %}
+                            {{ acc.platform_name }}
+                        </td>
+                        <td><strong>{{ acc.account_display_name or 'N/A' }}</strong></td>
+                        <td><small>{{ acc.account_id_on_platform }}</small></td>
+                        <td>
+                            {% if acc.is_active %}
+                                <span class="badge bg-success">Active</span>
+                            {% else %}
+                                <span class="badge bg-danger">Inactive</span>
+                                <small class="text-danger d-block">{{ acc.error_message[:50] if acc.error_message else 'Needs re-auth or check.' }}</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <small>Added: {{ acc.created_at.strftime('%Y-%m-%d') if acc.created_at else 'N/A' }}</small><br>
+                            <small>Validated: {{ acc.last_validated_at.strftime('%Y-%m-%d %H:%M') if acc.last_validated_at else 'Never' }}</small>
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <form action="{{ url_for('accounts_bp.validate_account', account_id=acc.id) }}" method="POST" class="d-inline me-1">
+                                    <button type="submit" class="btn btn-outline-info" title="Validate Credentials">
+                                        <i class="bi bi-check-circle"></i> Validate
+                                    </button>
+                                </form>
+                                <form action="{{ url_for('accounts_bp.add_account_start', platform_name=acc.platform_name) }}" method="GET" class="d-inline me-1">
+                                     <button type="submit" class="btn btn-outline-warning" title="Re-Authenticate Account">
+                                        <i class="bi bi-arrow-repeat"></i> Re-Auth
+                                    </button>
+                                </form>
+                                <form action="{{ url_for('accounts_bp.disconnect_account', account_id=acc.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to remove this account? This will also delete associated scheduled posts.');">
+                                    <button type="submit" class="btn btn-outline-danger" title="Remove Account">
+                                        <i class="bi bi-trash"></i> Remove
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="alert alert-info" role="alert">
+            <i class="bi bi-info-circle-fill"></i> No social media accounts connected yet. Click "Add New X Account" to get started.
+        </div>
+    {% endif %}
+{% endblock %}

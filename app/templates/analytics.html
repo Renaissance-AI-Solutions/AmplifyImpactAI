@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics - Amplify Impact Pro{% endblock %}
+
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Overview Cards -->
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Overview</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="card-title mb-0">Total Posts</h6>
+                                <h3 class="mb-0">{{ stats.total_posts }}</h3>
+                                <small class="text-muted">{{ stats.posts_change }}% change</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="card-title mb-0">Total Comments</h6>
+                                <h3 class="mb-0">{{ stats.total_comments }}</h3>
+                                <small class="text-muted">{{ stats.comments_change }}% change</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="card-title mb-0">Engagement Rate</h6>
+                                <h3 class="mb-0">{{ stats.engagement_rate }}%</h3>
+                                <small class="text-muted">{{ stats.engagement_change }}% change</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="card-title mb-0">Average Post Length</h6>
+                                <h3 class="mb-0">{{ stats.avg_post_length }} words</h3>
+                                <small class="text-muted">{{ stats.length_change }}% change</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Post Volume Over Time</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="postVolumeChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Comment Distribution</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="commentDistributionChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Engagement Metrics -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Engagement Metrics</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th>Current Period</th>
+                                <th>Previous Period</th>
+                                <th>Change</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Average Engagement Rate</td>
+                                <td>{{ stats.avg_engagement_rate }}%</td>
+                                <td>{{ stats.prev_avg_engagement_rate }}%</td>
+                                <td>
+                                    <span class="{{ 'text-success' if stats.engagement_change > 0 else 'text-danger' }}">
+                                        {{ stats.engagement_change }}%
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Average Comment Length</td>
+                                <td>{{ stats.avg_comment_length }} words</td>
+                                <td>{{ stats.prev_avg_comment_length }} words</td>
+                                <td>
+                                    <span class="{{ 'text-success' if stats.length_change > 0 else 'text-danger' }}">
+                                        {{ stats.length_change }}%
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Average Post Length</td>
+                                <td>{{ stats.avg_post_length }} words</td>
+                                <td>{{ stats.prev_avg_post_length }} words</td>
+                                <td>
+                                    <span class="{{ 'text-success' if stats.length_change > 0 else 'text-danger' }}">
+                                        {{ stats.length_change }}%
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Average Response Time</td>
+                                <td>{{ stats.avg_response_time }} minutes</td>
+                                <td>{{ stats.prev_avg_response_time }} minutes</td>
+                                <td>
+                                    <span class="{{ 'text-success' if stats.response_time_change < 0 else 'text-danger' }}">
+                                        {{ stats.response_time_change }}%
+                                    </span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Account Performance -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Account Performance</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Account</th>
+                                <th>Posts</th>
+                                <th>Comments</th>
+                                <th>Engagement Rate</th>
+                                <th>Average Response Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for account in account_performance %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <i class="fab fa-twitter text-primary me-2"></i>
+                                        <div>
+                                            <h6 class="mb-0">{{ account.account_display_name }}</h6>
+                                            <small class="text-muted">{{ account.account_id_on_platform }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">
+                                        {{ account.post_count }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-success">
+                                        {{ account.comment_count }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-primary">
+                                        {{ account.engagement_rate }}%
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-warning">
+                                        {{ account.avg_response_time }} minutes
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+    // Post Volume Chart
+    var ctx1 = document.getElementById('postVolumeChart').getContext('2d');
+    new Chart(ctx1, {
+        type: 'line',
+        data: {
+            labels: {{ post_volume_data.labels|tojson }},
+            datasets: [{
+                label: 'Posts',
+                data: {{ post_volume_data.values|tojson }},
+                borderColor: 'rgb(75, 192, 192)',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // Comment Distribution Chart
+    var ctx2 = document.getElementById('commentDistributionChart').getContext('2d');
+    new Chart(ctx2, {
+        type: 'pie',
+        data: {
+            labels: {{ comment_distribution_data.labels|tojson }},
+            datasets: [{
+                data: {{ comment_distribution_data.values|tojson }},
+                backgroundColor: [
+                    'rgb(255, 99, 132)',
+                    'rgb(54, 162, 235)',
+                    'rgb(255, 205, 86)'
+                ]
+            }]
+        },
+        options: {
+            responsive: true
+        }
+    });
+
+    // Update charts on window resize
+    window.addEventListener('resize', function() {
+        setTimeout(function() {
+            Chart.helpers.each(Chart.instances, function(instance) {
+                instance.resize();
+            });
+        }, 100);
+    });
+</script>
+{% endblock %}
