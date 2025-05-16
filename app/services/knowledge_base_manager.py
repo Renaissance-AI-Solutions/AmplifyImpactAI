@@ -45,8 +45,8 @@ class KnowledgeBaseManager:
     def process_document(self, document: KnowledgeDocument):
         """Process a document and create chunks."""
         try:
-            # Read file based on type
-            text = self._read_file(document.filename)
+            # Use new _extract_text for robust file type diagnosis
+            text = self._extract_text(document.filename, document.file_type)
             
             # Token-based chunking for optimal LLM embedding
             chunks = self._chunk_text_by_tokens(text)
@@ -70,21 +70,63 @@ class KnowledgeBaseManager:
             db.session.commit()
             return False
 
-    def _read_file(self, filename):
-        """Read file content based on file type."""
-        with open(filename, 'rb') as f:
-            content = f.read()
-        
-        if filename.endswith('.pdf'):
-            # Implement PDF reading logic here
-            pass
-        elif filename.endswith('.txt'):
-            return content.decode('utf-8')
-        elif filename.endswith('.docx'):
-            # Implement DOCX reading logic here
-            pass
-        
-        raise ValueError(f"Unsupported file type: {filename}")
+    def _extract_text(self, saved_doc_filename: str, file_type_arg: str):
+        print(f"--- DEBUG KBM: _extract_text ENTERED ---")
+        print(f"--- DEBUG KBM: Received saved_doc_filename: '{saved_doc_filename}' (type: {type(saved_doc_filename)}) ---")
+        print(f"--- DEBUG KBM: Received file_type_arg: '{file_type_arg}' (type: {type(file_type_arg)}) ---") # CRUCIAL
+        from flask import current_app
+        import os
+        import PyPDF2
+        import docx
+        file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], saved_doc_filename)
+        print(f"--- DEBUG KBM: Constructed file_path: '{file_path}' ---")
+        text_content = ""
+        # Normalize the received file_type_arg for robust comparison
+        normalized_file_type = str(file_type_arg).strip().lower()
+        print(f"--- DEBUG KBM: Normalized file_type for comparison: '{normalized_file_type}' ---")
+        if normalized_file_type == 'pdf':
+            print("--- DEBUG KBM: Matched 'pdf' type ---")
+            try:
+                with open(file_path, 'rb') as f:
+                    reader = PyPDF2.PdfReader(f)
+                    if reader.is_encrypted:
+                        try:
+                            reader.decrypt('')
+                        except Exception:
+                            logger.warning(f"Could not decrypt PDF {file_path}")
+                    for page in reader.pages:
+                        page_text = page.extract_text()
+                        if page_text:
+                            text_content += page_text + "\n"
+            except Exception as e:
+                logger.error(f"Error extracting PDF text from {file_path}: {e}", exc_info=True)
+        elif normalized_file_type == 'docx':
+            print("--- DEBUG KBM: Matched 'docx' type ---")
+            try:
+                doc = docx.Document(file_path)
+                for para in doc.paragraphs:
+                    text_content += para.text + "\n"
+            except Exception as e:
+                logger.error(f"Error extracting DOCX text from {file_path}: {e}", exc_info=True)
+        elif normalized_file_type == 'txt':
+            print("--- DEBUG KBM: Matched 'txt' type ---")
+            try:
+                with open(file_path, 'r', encoding='utf-8-sig') as f:
+                    text_content = f.read()
+            except UnicodeDecodeError:
+                try:
+                    with open(file_path, 'r', encoding='latin-1') as f:
+                        text_content = f.read()
+                except Exception as e_txt:
+                    logger.error(f"Error extracting TXT text from {file_path} with multiple encodings: {e_txt}", exc_info=True)
+            except Exception as e:
+                logger.error(f"Error extracting TXT text from {file_path}: {e}", exc_info=True)
+        else:
+            print(f"--- DEBUG KBM: UNMATCHED normalized_file_type: '{normalized_file_type}' ---")
+            logger.error(f"Unsupported file type ('{normalized_file_type}') for actual file path: {file_path}")
+            return ""
+        print(f"--- DEBUG KBM: _extract_text finished, text length: {len(text_content)} ---")
+        return text_content
 
     def _split_text_into_chunks(self, text, max_chunk_size=500):
         """(Deprecated) Split text into chunks of approximately max_chunk_size tokens."""
@@ -168,12 +210,12 @@ class KnowledgeBaseManager:
 
     def _initialize_index(self):
         """Initialize FAISS index if not exists."""
-        dimension = self.model.get_sentence_embedding_dimension()
+        dimension = self.embedding_model.get_sentence_embedding_dimension()
         self.index = faiss.IndexFlatL2(dimension)
 
     def _get_embedding(self, text):
         """Get embedding for text using sentence transformer model."""
-        return self.model.encode(text)
+        return self.embedding_model.encode(text)
 
     def search_similar_chunks(self, query, top_k=5):
         """Search for chunks most similar to the query."""
