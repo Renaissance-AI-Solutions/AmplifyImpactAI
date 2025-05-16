@@ -11,7 +11,7 @@
                 <h5 class="card-title mb-0">Upload Document</h5>
             </div>
             <div class="card-body">
-                <form method="POST" action="{{ url_for('kb_bp.upload') }}" enctype="multipart/form-data" id="upload-form">
+                <form method="POST" action="{{ url_for('kb_bp.manage_knowledge_base') }}" enctype="multipart/form-data" id="upload-form">
                     {{ form.hidden_tag() }}
                     
                     <!-- Document File -->
@@ -80,7 +80,7 @@
         $('#progress-text').text('Uploading document...');
         
         $.ajax({
-            url: '/knowledge-base/upload',
+            url: '/knowledge-base/',
             type: 'POST',
             data: formData,
             processData: false,
