@@ -39,10 +39,27 @@ def calculate_storage_used():
 def manage_knowledge_base():
     form = KnowledgeDocumentUploadForm()
     kb_manager = KnowledgeBaseManager(current_user.id)
-    total_chunks = sum(getattr(doc, 'chunks', []).count() if hasattr(doc, 'chunks') else 0 for doc in documents)
-    last_updated = max((getattr(doc, 'uploaded_at', None) for doc in documents), default=None)
-    storage_used = calculate_storage_used() if 'calculate_storage_used' in globals() else None
 
+    # STEP 1: Fetch documents and calculate template variables
+    documents_query = db.select(KnowledgeDocument).filter_by(
+        portal_user_id=current_user.id
+    ).order_by(KnowledgeDocument.uploaded_at.desc())
+    documents = db.session.scalars(documents_query).all()
+
+    # Helper to calculate total chunks
+    def calculate_total_chunks(docs):
+        return sum(doc.chunks.count() if hasattr(doc, 'chunks') and hasattr(doc.chunks, 'count') else len(getattr(doc, 'chunks', [])) for doc in docs)
+
+    # Helper to calculate last updated
+    def calculate_last_updated(docs):
+        dates = [doc.uploaded_at for doc in docs if getattr(doc, 'uploaded_at', None)]
+        return max(dates) if dates else None
+
+    total_chunks_val = calculate_total_chunks(documents)
+    last_updated_val = calculate_last_updated(documents)
+    storage_used_val = calculate_storage_used() if 'calculate_storage_used' in globals() else None
+
+    # STEP 2: Handle POST request
     if request.method == 'POST':
         if form.validate_on_submit():
             try:
@@ -61,26 +78,30 @@ def manage_knowledge_base():
                 db.session.add(document)
                 db.session.commit()
 
-                kbm = KnowledgeBaseManager()
+                kbm = KnowledgeBaseManager(current_user.id)
                 if kbm.process_document(document):
                     flash('Document uploaded and processed successfully!', 'success')
                 else:
                     flash('Error processing document. Please check the logs.', 'danger')
             except Exception as e:
-                flash(f'Error uploading document: {str(e)}', 'danger')
+                db.session.rollback()
+                logger.error("Upload error: %s", str(e), exc_info=True)
+                flash('An error occurred during upload. Please try again.', 'danger')
             return redirect(url_for('kb_bp.manage_knowledge_base'))
         else:
+            flash("Please correct the errors below.", "warning")
             for field, errors in form.errors.items():
                 for error in errors:
                     flash(f'{getattr(form, field).label.text}: {error}', 'danger')
-            # fall through to render page with errors
-    return render_template('knowledge_base/index.html', 
-                           documents=documents, 
-                           form=form,
-                           total_documents=total_documents,
-                           total_chunks=total_chunks,
-                           last_updated=last_updated,
-                           storage_used=storage_used)
+            # Will fall through to render_template with form errors
+
+    # STEP 3: Render template (handles both GET and failed POST)
+    return render_template('knowledge_base/index.html',
+                         form=form,
+                         documents=documents,
+                         total_chunks=total_chunks_val,
+                         last_updated=last_updated_val,
+                         storage_used=storage_used_val)
 
 
 @kb_bp.route('/<int:document_id>')
