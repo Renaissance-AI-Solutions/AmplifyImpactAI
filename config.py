@@ -5,26 +5,26 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 load_dotenv(os.path.join(basedir, '.env'))
 
 class Config:
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'you-will-never-guess'
+    SECRET_KEY = os.environ['SECRET_KEY']  # Must be set in environment
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
         'sqlite:///' + os.path.join(basedir, 'instance', 'app.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     UPLOAD_FOLDER = os.path.join(basedir, 'instance', 'uploads')
     ALLOWED_EXTENSIONS = {'txt', 'pdf', 'docx'}
-    LOG_TO_STDOUT = os.environ.get('LOG_TO_STDOUT')
+    LOG_TO_STDOUT = os.environ['LOG_TO_STDOUT']  # Must be set in environment
 
     # LLM Configuration
-    OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
+    OPENAI_API_KEY = os.environ['OPENAI_API_KEY']  # Must be set in environment
 
-    # X/Twitter API Credentials
-    X_CLIENT_ID = os.environ.get('X_CLIENT_ID')
-    X_CLIENT_SECRET = os.environ.get('X_CLIENT_SECRET')
-    X_CONSUMER_KEY = os.environ.get('X_CONSUMER_KEY')
-    X_CONSUMER_SECRET = os.environ.get('X_CONSUMER_SECRET')
-    X_CALLBACK_URL = os.environ.get('X_CALLBACK_URL') or 'http://localhost:5000/accounts/x/callback'
+    # X/Twitter API Credentials - must be set in environment
+    X_CLIENT_ID = os.environ['X_CLIENT_ID']
+    X_CLIENT_SECRET = os.environ['X_CLIENT_SECRET']
+    X_CONSUMER_KEY = os.environ['X_CONSUMER_KEY']
+    X_CONSUMER_SECRET = os.environ['X_CONSUMER_SECRET']
+    X_CALLBACK_URL = os.environ['X_CALLBACK_URL']  # Must be set in environment
 
-    # Fernet encryption key for tokens
-    FERNET_KEY = os.environ.get('FERNET_KEY')
+    # Fernet encryption key for tokens - must be set in environment
+    FERNET_KEY = os.environ['FERNET_KEY']
 
     # Scheduler settings
     SCHEDULER_API_ENABLED = True
@@ -36,7 +36,13 @@ class DevelopmentConfig(Config):
 class ProductionConfig(Config):
     DEBUG = False
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL_PROD') or \
-        'postgresql://user:password@host:port/dbname'
+        'postgresql://{user}:{password}@{host}:{port}/{dbname}'.format(
+            user=os.environ.get('DB_USER', 'postgres'),
+            password=os.environ.get('DB_PASSWORD', ''),
+            host=os.environ.get('DB_HOST', 'localhost'),
+            port=os.environ.get('DB_PORT', '5432'),
+            dbname=os.environ.get('DB_NAME', 'amplify_impact')
+        )
 
 config_by_name = {
     'development': DevelopmentConfig,
