@@ -36,6 +36,18 @@ def manage_knowledge_base():
 
         return redirect(url_for('kb_bp.manage_knowledge_base'))
 
+    # --- DEBUG: knowledge_base.py ---
+    print(f"Type of 'form' object: {type(form)}")
+    print(f"Fields available in 'form' object: {dir(form)}")
+    if hasattr(form, 'document'):
+        print(f"form.document exists. Type: {type(form.document)}")
+        if hasattr(form.document, 'label'):
+            print(f"form.document.label.text: {getattr(form.document.label, 'text', 'NO LABEL TEXT')}" )
+        else:
+            print(f"form.document has no label object or label text.")
+    else:
+        print(f"CRITICAL DEBUG: 'form' object does NOT have a 'document' attribute!")
+    print(f"--- END DEBUG ---")
     documents = KnowledgeDocument.query.filter_by(portal_user_id=current_user.id).all()
     return render_template('knowledge_base/index.html', documents=documents, form=form)
 
