@@ -9,9 +9,34 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">Knowledge Base</h5>
-                <a href="{{ url_for('kb_bp.manage_knowledge_base') }}" class="btn btn-primary">
+                <a href="#" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
                     <i class="fas fa-upload"></i> Upload Document
                 </a>
+
+                <!-- Upload Modal -->
+                <div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="uploadModalLabel">Upload Document</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form method="POST" action="{{ url_for('kb_bp.manage_knowledge_base') }}" enctype="multipart/form-data">
+                                    {{ form.hidden_tag() }}
+                                    <div class="mb-3">
+                                        {{ form.document.label(class="form-label") }}
+                                        {{ form.document(class="form-control" + (' is-invalid' if form.document.errors else '')) }}
+                                        {% for error in form.document.errors %}
+                                            <div class="invalid-feedback d-block">{{ error }}</div>
+                                        {% endfor %}
+                                    </div>
+                                    {{ form.submit(class="btn btn-primary") }}
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="card-body">
                 <div class="row g-3">

@@ -1,4 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
+from werkzeug.utils import secure_filename
+import os
 from flask_login import login_required, current_user
 from app.models import PortalUser, KnowledgeDocument, KnowledgeChunk
 from app.forms import KnowledgeDocumentUploadForm
@@ -10,47 +12,51 @@ kb_bp = Blueprint('kb_bp', __name__)
 @kb_bp.route('/', methods=['GET', 'POST'])
 @login_required
 def manage_knowledge_base():
-    print("--- DEBUG: Top of manage_knowledge_base function reached ---")
     form = KnowledgeDocumentUploadForm()
-    if form.validate_on_submit():
-        # Save file
-        file = form.document.data
-        filename = os.path.join(current_app.config['UPLOAD_FOLDER'], f"{current_user.id}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{file.filename}")
-        file.save(filename)
-
-        # Create document record
-        document = KnowledgeDocument(
-            portal_user_id=current_user.id,
-            filename=filename,
-            original_filename=file.filename,
-            file_type=file.filename.rsplit('.', 1)[1].lower()
-        )
-        db.session.add(document)
-        db.session.commit()
-
-        # Process document
-        kbm = KnowledgeBaseManager()
-        if kbm.process_document(document):
-            flash('Document uploaded and processed successfully!', 'success')
-        else:
-            flash('Error processing document. Please check the logs.', 'danger')
-
-        return redirect(url_for('kb_bp.manage_knowledge_base'))
-
-    # --- DEBUG: knowledge_base.py ---
-    print(f"Type of 'form' object: {type(form)}")
-    print(f"Fields available in 'form' object: {dir(form)}")
-    if hasattr(form, 'document'):
-        print(f"form.document exists. Type: {type(form.document)}")
-        if hasattr(form.document, 'label'):
-            print(f"form.document.label.text: {getattr(form.document.label, 'text', 'NO LABEL TEXT')}" )
-        else:
-            print(f"form.document has no label object or label text.")
-    else:
-        print(f"CRITICAL DEBUG: 'form' object does NOT have a 'document' attribute!")
-    print(f"--- END DEBUG ---")
     documents = KnowledgeDocument.query.filter_by(portal_user_id=current_user.id).all()
-    return render_template('knowledge_base/index.html', documents=documents, form=form)
+    total_documents = len(documents)
+    total_chunks = sum(getattr(doc, 'chunks', []).count() if hasattr(doc, 'chunks') else 0 for doc in documents)
+    last_updated = max((getattr(doc, 'uploaded_at', None) for doc in documents), default=None)
+    storage_used = calculate_storage_used() if 'calculate_storage_used' in globals() else None
+
+    if request.method == 'POST':
+        if form.validate_on_submit():
+            try:
+                file = form.document.data
+                filename = secure_filename(f"{current_user.id}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{file.filename}")
+                filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+                file.save(filepath)
+
+                document = KnowledgeDocument(
+                    portal_user_id=current_user.id,
+                    filename=filepath,
+                    original_filename=file.filename,
+                    file_type=file.filename.rsplit('.', 1)[1].lower(),
+                    uploaded_at=datetime.now(timezone.utc)
+                )
+                db.session.add(document)
+                db.session.commit()
+
+                kbm = KnowledgeBaseManager()
+                if kbm.process_document(document):
+                    flash('Document uploaded and processed successfully!', 'success')
+                else:
+                    flash('Error processing document. Please check the logs.', 'danger')
+            except Exception as e:
+                flash(f'Error uploading document: {str(e)}', 'danger')
+            return redirect(url_for('kb_bp.manage_knowledge_base'))
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    flash(f'{getattr(form, field).label.text}: {error}', 'danger')
+            # fall through to render page with errors
+    return render_template('knowledge_base/index.html', 
+                           documents=documents, 
+                           form=form,
+                           total_documents=total_documents,
+                           total_chunks=total_chunks,
+                           last_updated=last_updated,
+                           storage_used=storage_used)
 
 
 @kb_bp.route('/<int:document_id>')
