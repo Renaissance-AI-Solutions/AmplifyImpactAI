@@ -19,6 +19,8 @@ login_manager.login_message_category = 'info'
 
 def create_app(config_name=None):
     from app.services.scheduler_service import SchedulerService
+    from app.services.knowledge_base_manager import initialize_kb_components
+    import atexit
     scheduler_service = SchedulerService()
     if config_name is None:
         config_name = get_config_name()
@@ -38,6 +40,13 @@ def create_app(config_name=None):
     migrate.init_app(app, db)
     login_manager.init_app(app)
     csrf.init_app(app)
+
+    # Initialize Knowledge Base components
+    with app.app_context():
+        initialize_kb_components(app)
+    # Optionally register save_kb_components if available
+    # from app.services.knowledge_base_manager import save_kb_components
+    # atexit.register(save_kb_components)
 
     # Only initialize scheduler if enabled
     if app.config.get('SCHEDULER_API_ENABLED', True):

@@ -1,13 +1,20 @@
 import os
 import logging
+from flask import current_app
 from datetime import datetime, timezone
 import faiss
+import pickle
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-embedding_model = None  # Will be set by initialize_kb_components
+logger = logging.getLogger(__name__)
+
+embedding_model = None
 faiss_index = None
-faiss_id_to_chunk_pk_map = None  # Add more globals as needed for your FAISS setup
+faiss_id_to_chunk_pk_map = {}
+faiss_index_path_global = None
+faiss_map_path_global = None
+
 from app import db
 from app.models import KnowledgeDocument, KnowledgeChunk
 from app.utils.encryption import encrypt_token, decrypt_token
@@ -17,30 +24,68 @@ logger = logging.getLogger(__name__)
 
 def initialize_kb_components(app):
     global embedding_model, faiss_index, faiss_id_to_chunk_pk_map
-    if embedding_model is None:
+    global faiss_index_path_global, faiss_map_path_global
+
+    if embedding_model is not None:
+        logger.info("Global SentenceTransformer model and FAISS components appear to be already initialized.")
+        return
+
+    logger.info("Attempting to initialize global Knowledge Base components...")
+    # 1. Initialize SentenceTransformer Model
+    model_loaded_successfully = False
+    try:
+        model_name_config = app.config.get('SENTENCE_TRANSFORMER_MODEL', 'all-MiniLM-L6-v2')
+        logger.info(f"Loading SentenceTransformer model: '{model_name_config}'...")
+        embedding_model = SentenceTransformer(model_name_config)
+        logger.info(f"Global SentenceTransformer model '{model_name_config}' loaded successfully.")
+        model_loaded_successfully = True
+    except Exception as e:
+        logger.error(f"CRITICAL FAILURE: Failed to initialize global SentenceTransformer model ('{model_name_config}'). This will prevent KB processing. Error: {e}", exc_info=True)
+        embedding_model = None
+        faiss_index = None
+    # 2. Initialize FAISS Index (only if model loaded)
+    if model_loaded_successfully and embedding_model:
+        logger.info("Proceeding with FAISS index initialization...")
         try:
-            model_name_config = app.config.get('SENTENCE_TRANSFORMER_MODEL', 'all-MiniLM-L6-v2')
-            embedding_model = SentenceTransformer(model_name_config)
-            logger.info(f"Global SentenceTransformer model '{model_name_config}' loaded.")
-        except Exception as e:
-            logger.error(f"Failed to initialize global SentenceTransformer model: {e}", exc_info=True)
-            return
-    # You can initialize FAISS and other globals here as needed
-    # faiss_index = ...
-    # faiss_id_to_chunk_pk_map = ...
+            embedding_dimension = embedding_model.get_sentence_embedding_dimension()
+            logger.info(f"Embedding dimension determined: {embedding_dimension}")
+            instance_path = app.instance_path
+            faiss_index_path_global = os.path.join(instance_path, app.config.get('FAISS_INDEX_FILENAME', "kb_faiss.index"))
+            faiss_map_path_global = os.path.join(instance_path, app.config.get('FAISS_MAP_FILENAME', "kb_faiss_map.pkl"))
+            if os.path.exists(faiss_index_path_global) and os.path.exists(faiss_map_path_global):
+                logger.info(f"Attempting to load existing FAISS index from: {faiss_index_path_global}")
+                faiss_index = faiss.read_index(faiss_index_path_global)
+                with open(faiss_map_path_global, "rb") as f:
+                    faiss_id_to_chunk_pk_map = pickle.load(f)
+                logger.info(f"FAISS index loaded with {faiss_index.ntotal if faiss_index else 'N/A'} vectors. ID map loaded.")
+            else:
+                logger.info(f"No existing FAISS index found at {faiss_index_path_global}. Creating a new one.")
+                faiss_index = faiss.IndexFlatL2(embedding_dimension)
+                faiss_id_to_chunk_pk_map = {}
+            if faiss_index is None:
+                logger.warning("FAISS index is unexpectedly None after initialization attempt. Re-creating.")
+                faiss_index = faiss.IndexFlatL2(embedding_dimension)
+                faiss_id_to_chunk_pk_map = {}
+            logger.info("FAISS index initialization complete.")
+        except Exception as e_faiss:
+            logger.error(f"CRITICAL FAILURE: Failed to initialize FAISS index. Error: {e_faiss}", exc_info=True)
+            faiss_index = None
+    elif not model_loaded_successfully:
+        logger.error("Skipping FAISS initialization because embedding model failed to load.")
+        faiss_index = None
+    if embedding_model and faiss_index:
+        logger.info("Knowledge Base components (model and FAISS index) initialized successfully.")
+    else:
+        logger.warning("Knowledge Base components initialization incomplete. Model or FAISS index might be None.")
 
 class KnowledgeBaseManager:
     def __init__(self, portal_user_id: int):
         self.portal_user_id = portal_user_id
-        self.embedding_model = embedding_model  # Use the global instance
+        self.embedding_model = embedding_model
         self.index = faiss_index
         self.id_map = faiss_id_to_chunk_pk_map
-        # Optional debug prints
-        # print(f"--- DEBUG KBM: KnowledgeBaseManager initialized for user {portal_user_id} ---")
-        # if self.embedding_model:
-        #     print(f"--- DEBUG KBM: Instance using embedding_model of type: {type(self.embedding_model)} ---")
-        # else:
-        #     print(f"--- DEBUG KBM: Instance has NO embedding_model. Check app startup logs for 'initialize_kb_components'. ---")
+        if self.embedding_model is None or self.index is None:
+            logger.warning(f"KBM instance for user {portal_user_id} created, but global embedding_model or faiss_index is None. KB functionality will be impaired. Check startup logs.")
 
     def process_document(self, document: KnowledgeDocument):
         """Process a document and create chunks."""
