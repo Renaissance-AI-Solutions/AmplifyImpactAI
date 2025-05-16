@@ -4,21 +4,35 @@ from datetime import datetime, timezone
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
+from flask_login import current_user
+from flask import current_app
 from app import db
 from app.models import KnowledgeDocument, KnowledgeChunk, ScheduledPost
 from app.services.knowledge_base_manager import KnowledgeBaseManager
+# from app.services.content_generator import ContentGenerator  # Uncomment if you use an LLM service
 
 logger = logging.getLogger(__name__)
 
 class PostGeneratorService:
-    def __init__(self, knowledge_base_manager: Optional[KnowledgeBaseManager] = None):
-        """Initialize the post generator service."""
-        self.knowledge_base = knowledge_base_manager or KnowledgeBaseManager()
+    def __init__(self):
+        # self.llm_service = ContentGenerator()  # Uncomment if you use an LLM service
         self.vectorizer = TfidfVectorizer(
             max_features=1000,
             stop_words='english',
             ngram_range=(1, 2)
         )
+        print("--- DEBUG: PostGeneratorService initialized (without immediate KBManager) ---")
+
+    def _get_kb_manager(self):
+        """Helper to get a KB manager instance for the current authenticated user."""
+        if current_user and hasattr(current_user, 'is_authenticated') and current_user.is_authenticated:
+            if hasattr(current_user, 'id'):
+                return KnowledgeBaseManager(portal_user_id=current_user.id)
+            else:
+                logger.error("Current user is authenticated but has no 'id' attribute.")
+                return None
+        logger.warning("_get_kb_manager called when no authenticated user is available.")
+        return None
         
     def extract_topics(self, document_id: int, num_topics: int = 5) -> List[Dict]:
         """Extract main topics from a document using TF-IDF and clustering."""
@@ -137,7 +151,11 @@ class PostGeneratorService:
     ) -> Optional[ScheduledPost]:
         """Create a scheduled post from document content."""
         try:
-            # Extract topics
+            # Use the KB manager for the current user if needed (example usage)
+            kb_manager = self._get_kb_manager()
+            # If you want to use kb_manager, you can call methods on it here
+            # For now, we'll continue using extract_topics as before
+
             topics = self.extract_topics(document_id)
             if not topics:
                 logger.warning(f"No topics found for document {document_id}")
