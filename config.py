@@ -11,7 +11,7 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     UPLOAD_FOLDER = os.path.join(basedir, 'instance', 'uploads')
     ALLOWED_EXTENSIONS = {'txt', 'pdf', 'docx'}
-    LOG_TO_STDOUT = os.environ['LOG_TO_STDOUT']  # Must be set in environment
+    LOG_TO_STDOUT = os.environ.get('LOG_TO_STDOUT')  # Optional; set to 'True' to log to stdout
 
     # LLM Configuration
     OPENAI_API_KEY = os.environ['OPENAI_API_KEY']  # Must be set in environment

@@ -4,6 +4,10 @@ from datetime import datetime, timezone
 import faiss
 import numpy as np
 from sentence_transformers import SentenceTransformer
+
+embedding_model = None  # Will be set by initialize_kb_components
+faiss_index = None
+faiss_id_to_chunk_pk_map = None  # Add more globals as needed for your FAISS setup
 from app import db
 from app.models import KnowledgeDocument, KnowledgeChunk
 from app.utils.encryption import encrypt_token, decrypt_token
@@ -11,12 +15,32 @@ from langchain.text_splitter import TokenTextSplitter
 
 logger = logging.getLogger(__name__)
 
+def initialize_kb_components(app):
+    global embedding_model, faiss_index, faiss_id_to_chunk_pk_map
+    if embedding_model is None:
+        try:
+            model_name_config = app.config.get('SENTENCE_TRANSFORMER_MODEL', 'all-MiniLM-L6-v2')
+            embedding_model = SentenceTransformer(model_name_config)
+            logger.info(f"Global SentenceTransformer model '{model_name_config}' loaded.")
+        except Exception as e:
+            logger.error(f"Failed to initialize global SentenceTransformer model: {e}", exc_info=True)
+            return
+    # You can initialize FAISS and other globals here as needed
+    # faiss_index = ...
+    # faiss_id_to_chunk_pk_map = ...
+
 class KnowledgeBaseManager:
-    def __init__(self, model_name='all-MiniLM-L6-v2'):
-        self.model = SentenceTransformer(model_name)
-        self.index = None
-        self.index_to_chunk_id = {}  # Map FAISS index positions to chunk IDs
-        self.chunk_id_to_index = {}  # Map chunk IDs to FAISS index positions
+    def __init__(self, portal_user_id: int):
+        self.portal_user_id = portal_user_id
+        self.embedding_model = embedding_model  # Use the global instance
+        self.index = faiss_index
+        self.id_map = faiss_id_to_chunk_pk_map
+        # Optional debug prints
+        # print(f"--- DEBUG KBM: KnowledgeBaseManager initialized for user {portal_user_id} ---")
+        # if self.embedding_model:
+        #     print(f"--- DEBUG KBM: Instance using embedding_model of type: {type(self.embedding_model)} ---")
+        # else:
+        #     print(f"--- DEBUG KBM: Instance has NO embedding_model. Check app startup logs for 'initialize_kb_components'. ---")
 
     def process_document(self, document: KnowledgeDocument):
         """Process a document and create chunks."""

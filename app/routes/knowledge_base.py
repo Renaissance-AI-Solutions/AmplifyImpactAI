@@ -6,15 +6,39 @@ from app.models import PortalUser, KnowledgeDocument, KnowledgeChunk
 from app.forms import KnowledgeDocumentUploadForm
 from app.services.knowledge_base_manager import KnowledgeBaseManager
 from datetime import datetime, timezone
+from app import db
+import logging
+logger = logging.getLogger(__name__)
 
 kb_bp = Blueprint('kb_bp', __name__)
+
+# Placeholder function - user needs to implement actual logic
+def calculate_storage_used():
+    # This function should calculate the total disk space used by uploaded documents
+    # associated with the current_user. For now, a placeholder.
+    total_size = 0
+    try:
+        if current_user.is_authenticated:
+            docs = db.session.scalars(db.select(KnowledgeDocument).filter_by(portal_user_id=current_user.id)).all()
+            upload_folder = current_app.config.get('UPLOAD_FOLDER')
+            if upload_folder:
+                for doc in docs:
+                    if doc.filename:
+                        try:
+                            filepath = os.path.join(upload_folder, doc.filename)
+                            if os.path.exists(filepath):
+                                total_size += os.path.getsize(filepath)
+                        except Exception as e_size:
+                            logger.error(f"Error getting size for {doc.filename}: {e_size}")
+    except Exception as e_calc:
+        logger.error(f"Error in calculate_storage_used: {e_calc}")
+    return total_size # Return size in bytes
 
 @kb_bp.route('/', methods=['GET', 'POST'])
 @login_required
 def manage_knowledge_base():
     form = KnowledgeDocumentUploadForm()
-    documents = KnowledgeDocument.query.filter_by(portal_user_id=current_user.id).all()
-    total_documents = len(documents)
+    kb_manager = KnowledgeBaseManager(current_user.id)
     total_chunks = sum(getattr(doc, 'chunks', []).count() if hasattr(doc, 'chunks') else 0 for doc in documents)
     last_updated = max((getattr(doc, 'uploaded_at', None) for doc in documents), default=None)
     storage_used = calculate_storage_used() if 'calculate_storage_used' in globals() else None
