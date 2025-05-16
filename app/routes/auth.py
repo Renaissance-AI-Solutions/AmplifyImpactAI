@@ -23,8 +23,9 @@ def login():
         
         # Redirect to next page if it exists
         next_page = request.args.get('next')
-        if not next_page or not next_page.startswith('/'):
-            next_page = url_for('main_bp.index')
+        from werkzeug.urls import url_parse
+        if not next_page or url_parse(next_page).netloc != '':
+            next_page = url_for('main_bp.dashboard')
         return redirect(next_page)
     
     return render_template('auth/login.html', title='Sign In', form=form)
