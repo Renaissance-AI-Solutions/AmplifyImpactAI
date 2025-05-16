@@ -96,11 +96,6 @@ def settings():
     
     return render_template('settings.html', comment_settings_form=comment_settings_form)
 
-@main_bp.route('/knowledge-base')
-@login_required
-def knowledge_base():
-    documents = KnowledgeDocument.query.filter_by(portal_user_id=current_user.id).all()
-    return render_template('knowledge_base.html', documents=documents)
 
 @main_bp.route('/analytics')
 @login_required

@@ -42,7 +42,7 @@ def manage_accounts():
     accounts = ManagedAccount.query.filter_by(portal_user_id=current_user.id).all()
     return render_template('accounts/manage_accounts.html', accounts=accounts)
 
-@accounts_bp.route('/accounts/x/connect')
+@accounts_bp.route('/x/connect')
 def connect_x():
     """Start X (Twitter) OAuth 1.0a flow."""
     platform = XPlatform()
@@ -54,7 +54,7 @@ def connect_x():
         flash('Error connecting to X. Please try again.', 'danger')
         return redirect(url_for('accounts_bp.index'))
 
-@accounts_bp.route('/accounts/x/callback')
+@accounts_bp.route('/x/callback')
 def x_callback():
     """Handle X OAuth 1.0a callback (legacy, for backward compatibility)."""
     oauth_verifier = request.args.get('oauth_verifier')
@@ -155,7 +155,7 @@ def oauth_callback(platform_name_route):
 
     return redirect(url_for('.manage_accounts'))
 
-@accounts_bp.route('/accounts/<int:account_id>/validate')
+@accounts_bp.route('/<int:account_id>/validate')
 @login_required
 def validate_account(account_id):
     """Validate account credentials."""
@@ -180,7 +180,7 @@ def validate_account(account_id):
         flash('Error validating account credentials.', 'danger')
         return redirect(url_for('accounts_bp.index'))
 
-@accounts_bp.route('/accounts/<int:account_id>/disconnect')
+@accounts_bp.route('/<int:account_id>/disconnect')
 @login_required
 def disconnect_account(account_id):
     """Disconnect account."""

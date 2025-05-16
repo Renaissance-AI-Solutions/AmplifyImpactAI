@@ -10,6 +10,7 @@ kb_bp = Blueprint('kb_bp', __name__)
 @kb_bp.route('/', methods=['GET', 'POST'])
 @login_required
 def manage_knowledge_base():
+    print("--- DEBUG: Top of manage_knowledge_base function reached ---")
     form = KnowledgeDocumentUploadForm()
     if form.validate_on_submit():
         # Save file
@@ -52,7 +53,7 @@ def manage_knowledge_base():
     return render_template('knowledge_base/index.html', documents=documents, form=form)
 
 
-@kb_bp.route('/knowledge-base/<int:document_id>')
+@kb_bp.route('/<int:document_id>')
 @login_required
 def view_document(document_id):
     document = KnowledgeDocument.query.get_or_404(document_id)
@@ -63,7 +64,7 @@ def view_document(document_id):
     chunks = KnowledgeChunk.query.filter_by(document_id=document_id).all()
     return render_template('knowledge_base/view.html', document=document, chunks=chunks)
 
-@kb_bp.route('/knowledge-base/search')
+@kb_bp.route('/search')
 @login_required
 def search():
     query = request.args.get('q', '')
@@ -84,7 +85,7 @@ def search():
     
     return render_template('knowledge_base/search.html', query=query, results=formatted_results)
 
-@kb_bp.route('/knowledge-base/delete', methods=['POST'])
+@kb_bp.route('/delete', methods=['POST'])
 @login_required
 def delete_document():
     document_id = request.form.get('document_id')

@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 engagement_bp = Blueprint('engagement_bp', __name__)
 
-@engagement_bp.route('/engagement')
+@engagement_bp.route('/')
 @login_required
 def index():
     # Get pending comments
@@ -102,7 +102,7 @@ def comment_settings():
     
     return render_template('engagement/settings.html', form=form)
 
-@engagement_bp.route('/engagement/comments/<int:comment_id>/approve')
+@engagement_bp.route('/comments/<int:comment_id>/approve')
 @login_required
 def approve_comment(comment_id):
     comment = GeneratedComment.query.get_or_404(comment_id)
@@ -142,7 +142,7 @@ def approve_comment(comment_id):
         flash('Error posting comment. Please try again.', 'danger')
         return redirect(url_for('engagement_bp.index'))
 
-@engagement_bp.route('/engagement/comments/<int:comment_id>/edit', methods=['GET', 'POST'])
+@engagement_bp.route('/comments/<int:comment_id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_comment(comment_id):
     comment = GeneratedComment.query.get_or_404(comment_id)
@@ -165,7 +165,7 @@ def edit_comment(comment_id):
     form.comment_text.data = comment.suggested_comment_text
     return render_template('engagement/edit_comment.html', form=form, comment=comment)
 
-@engagement_bp.route('/engagement/comments/<int:comment_id>/reject')
+@engagement_bp.route('/comments/<int:comment_id>/reject')
 @login_required
 def reject_comment(comment_id):
     comment = GeneratedComment.query.get_or_404(comment_id)
