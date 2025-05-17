@@ -104,11 +104,11 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">View Chunk</h5>
+                <h5 class="modal-title" id="chunkTitle">View Chunk</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div id="chunk-content"></div>
+                <div id="chunkContent"></div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -179,11 +179,24 @@
         
         $.ajax({
             url: '/knowledge-base/chunks/' + chunkId,
+            method: 'GET',
             success: function(response) {
-                $('#chunk-content').html(response.content);
+                if (response.error) {
+                    $('#chunkTitle').text('Error');
+                    $('#chunkContent').html('<span class="text-danger">' + response.error + '</span>');
+                } else {
+                    $('#chunkTitle').text('Chunk from ' + (response.title || 'Unknown Document'));
+                    $('#chunkContent').text(response.content);
+                }
             },
             error: function(xhr) {
-                $('#chunk-content').html('Error loading chunk: ' + xhr.responseText);
+                if (xhr.status === 403) {
+                    $('#chunkTitle').text('Unauthorized');
+                    $('#chunkContent').html('<span class="text-danger">Unauthorized access to chunk.</span>');
+                } else {
+                    $('#chunkTitle').text('Error');
+                    $('#chunkContent').html('Error loading chunk: ' + xhr.responseText);
+                }
             }
         });
     });

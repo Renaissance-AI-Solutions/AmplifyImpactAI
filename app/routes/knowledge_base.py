@@ -134,6 +134,22 @@ def view_document(document_id):
         title=f"{document.original_filename} - Document"
     )
 
+@kb_bp.route('/chunks/<int:chunk_id>')
+@login_required
+def view_chunk(chunk_id):
+    """View a specific chunk as JSON, with ownership verification."""
+    chunk = KnowledgeChunk.query.get_or_404(chunk_id)
+    # Verify ownership via parent document
+    if not chunk.document or chunk.document.portal_user_id != current_user.id:
+        return {'error': 'Unauthorized access to chunk.'}, 403
+    return {
+        'id': chunk.id,
+        'content': chunk.content,
+        'document_id': chunk.document_id,
+        'title': chunk.document.original_filename if chunk.document else None,
+        'faiss_index_id': chunk.faiss_index_id if hasattr(chunk, 'faiss_index_id') else None
+    }
+
 @kb_bp.route('/search')
 @login_required
 def search():
