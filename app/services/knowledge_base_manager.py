@@ -90,91 +90,234 @@ class KnowledgeBaseManager:
         if self.embedding_model is None or self.index is None:
             logger.warning(f"KBM instance for user {portal_user_id} created, but global embedding_model or faiss_index is None. KB functionality will be impaired. Check startup logs.")
 
-    def process_document(self, document: KnowledgeDocument):
-        """Process a document and create chunks."""
+    def _update_document_status(self, document: KnowledgeDocument, status: str, error_msg: str = None):
+        """Helper method to update document status and log the change."""
+        document.status = status
+        if error_msg:
+            document.error_message = error_msg
+        document.processed_at = datetime.now(timezone.utc)
+        db.session.commit()
+        logger.info(f"Document {document.id} status updated to '{status}': {error_msg or 'No error'}")
+
+    def process_document(self, document: KnowledgeDocument) -> bool:
+        """Process a document and create chunks with comprehensive error handling.
+        
+        Args:
+            document: The KnowledgeDocument to process
+            
+        Returns:
+            bool: True if processing succeeded, False otherwise
+        """
+        if not document or not document.filename:
+            error_msg = "Invalid document or missing filename"
+            logger.error(error_msg)
+            self._update_document_status(document, 'error', error_msg)
+            return False
+            
+        # Verify file exists and is accessible
+        if not os.path.exists(document.filename):
+            error_msg = f"Document file not found: {document.filename}"
+            logger.error(error_msg)
+            self._update_document_status(document, 'error', error_msg)
+            return False
+            
+        # Check file size
         try:
-            # Use new _extract_text for robust file type diagnosis
-            text = self._extract_text(document.filename, document.file_type)
+            if os.path.getsize(document.filename) == 0:
+                error_msg = f"Document file is empty: {document.filename}"
+                logger.error(error_msg)
+                self._update_document_status(document, 'error', error_msg)
+                return False
+        except OSError as e:
+            error_msg = f"Error accessing document file {document.filename}: {e}"
+            logger.error(error_msg)
+            self._update_document_status(document, 'error', error_msg)
+            return False
+            
+        try:
+            # Extract text with enhanced error handling
+            try:
+                text = self._extract_text(document.filename, document.file_type)
+                if not text or not text.strip():
+                    error_msg = "No valid text content could be extracted from the document"
+                    logger.warning(f"{error_msg} (ID: {document.id})")
+                    self._update_document_status(document, 'error', error_msg)
+                    return False
+            except Exception as e:
+                error_msg = f"Text extraction failed: {str(e)}"
+                logger.error(f"{error_msg} (Document ID: {document.id})", exc_info=True)
+                self._update_document_status(document, 'error', error_msg)
+                return False
             
             # Token-based chunking for optimal LLM embedding
-            chunks = self._chunk_text_by_tokens(text)
+            try:
+                chunks = self._chunk_text_by_tokens(text)
+                if not chunks:
+                    error_msg = "Could not create valid chunks from document content"
+                    logger.warning(f"{error_msg} (Document ID: {document.id})")
+                    self._update_document_status(document, 'error', error_msg)
+                    return False
+            except Exception as e:
+                error_msg = f"Error during text chunking: {str(e)}"
+                logger.error(f"{error_msg} (Document ID: {document.id})", exc_info=True)
+                self._update_document_status(document, 'error', error_msg)
+                return False
             
             # Create and save chunks
-            for i, chunk in enumerate(chunks):
-                self._create_and_save_chunk(document, chunk, i)
-            
-            # Update document status
-            document.status = 'processed'
-            document.processed_at = datetime.now(timezone.utc)
-            db.session.commit()
-            
-            logger.info(f"Processed document {document.id} successfully")
-            return True
-            
+            try:
+                chunk_count = 0
+                for i, chunk in enumerate(chunks):
+                    # Less strict validation - only skip completely None chunks
+                    if chunk is not None:
+                        self._create_and_save_chunk(document, chunk, i)
+                        chunk_count += 1
+                
+                if chunk_count == 0:
+                    error_msg = "No valid chunks could be created from the document"
+                    logger.warning(f"{error_msg} (Document ID: {document.id})")
+                    self._update_document_status(document, 'error', error_msg)
+                    return False
+                    
+                # Update document status to processed
+                self._update_document_status(document, 'processed')
+                logger.info(f"Successfully processed document {document.id} with {chunk_count} chunks")
+                return True
+                
+            except Exception as e:
+                error_msg = f"Error saving document chunks: {str(e)}"
+                logger.error(f"{error_msg} (Document ID: {document.id})", exc_info=True)
+                self._update_document_status(document, 'error', error_msg)
+                return False
+                
         except Exception as e:
-            logger.error(f"Error processing document {document.id}: {e}")
-            document.status = 'error'
-            document.error_message = str(e)
-            db.session.commit()
+            error_msg = f"Unexpected error processing document: {str(e)}"
+            logger.error(f"{error_msg} (Document ID: {document.id})", exc_info=True)
+            self._update_document_status(document, 'error', error_msg)
             return False
 
     def _extract_text(self, saved_doc_filename: str, file_type_arg: str):
-        print(f"--- DEBUG KBM: _extract_text ENTERED ---")
-        print(f"--- DEBUG KBM: Received saved_doc_filename: '{saved_doc_filename}' (type: {type(saved_doc_filename)}) ---")
-        print(f"--- DEBUG KBM: Received file_type_arg: '{file_type_arg}' (type: {type(file_type_arg)}) ---") # CRUCIAL
+        """Extract text from a document file with enhanced error handling.
+        
+        Args:
+            saved_doc_filename: Path to the document file
+            file_type_arg: Type of the document (pdf, docx, txt, etc.)
+            
+        Returns:
+            Extracted text content as a string
+            
+        Raises:
+            FileNotFoundError: If the file doesn't exist
+            ValueError: If the file is empty, encrypted, or has no extractable text
+        """
+        logger.debug(f"Extracting text from file: {saved_doc_filename} (type: {file_type_arg})")
+        
         from flask import current_app
         import os
         import PyPDF2
         import docx
+        
+        # Construct full file path
         file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], saved_doc_filename)
-        print(f"--- DEBUG KBM: Constructed file_path: '{file_path}' ---")
+        
+        # Validate file exists
+        if not os.path.exists(file_path):
+            error_msg = f"File not found: {file_path}"
+            logger.error(error_msg)
+            raise FileNotFoundError(error_msg)
+            
+        # Validate file is not empty
+        if os.path.getsize(file_path) == 0:
+            error_msg = f"Empty file: {file_path}"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+        
         text_content = ""
-        # Normalize the received file_type_arg for robust comparison
         normalized_file_type = str(file_type_arg).strip().lower()
-        print(f"--- DEBUG KBM: Normalized file_type for comparison: '{normalized_file_type}' ---")
-        if normalized_file_type == 'pdf':
-            print("--- DEBUG KBM: Matched 'pdf' type ---")
-            try:
+        
+        try:
+            if normalized_file_type == 'pdf':
                 with open(file_path, 'rb') as f:
                     reader = PyPDF2.PdfReader(f)
+                    
+                    # Handle encrypted PDFs
                     if reader.is_encrypted:
                         try:
                             reader.decrypt('')
-                        except Exception:
-                            logger.warning(f"Could not decrypt PDF {file_path}")
-                    for page in reader.pages:
-                        page_text = page.extract_text()
-                        if page_text:
-                            text_content += page_text + "\n"
-            except Exception as e:
-                logger.error(f"Error extracting PDF text from {file_path}: {e}", exc_info=True)
-        elif normalized_file_type == 'docx':
-            print("--- DEBUG KBM: Matched 'docx' type ---")
-            try:
-                doc = docx.Document(file_path)
-                for para in doc.paragraphs:
-                    text_content += para.text + "\n"
-            except Exception as e:
-                logger.error(f"Error extracting DOCX text from {file_path}: {e}", exc_info=True)
-        elif normalized_file_type == 'txt':
-            print("--- DEBUG KBM: Matched 'txt' type ---")
-            try:
-                with open(file_path, 'r', encoding='utf-8-sig') as f:
-                    text_content = f.read()
-            except UnicodeDecodeError:
+                        except Exception as e:
+                            error_msg = f"Could not decrypt PDF: {str(e)}"
+                            logger.error(error_msg)
+                            raise ValueError("Unable to read encrypted PDF document")
+                    
+                    # Check if PDF has pages
+                    if len(reader.pages) == 0:
+                        error_msg = f"PDF has no pages: {file_path}"
+                        logger.error(error_msg)
+                        raise ValueError("The PDF document appears to be empty (no pages)")
+                    
+                    # Extract text from each page
+                    for i, page in enumerate(reader.pages, 1):
+                        try:
+                            page_text = page.extract_text()
+                            if page_text and page_text.strip():
+                                text_content += page_text.strip() + "\n"
+                        except Exception as e:
+                            logger.warning(f"Error extracting text from page {i} in {file_path}: {str(e)}")
+                            continue
+                    
+                    # Verify we extracted some text
+                    if not text_content.strip():
+                        error_msg = f"No text content could be extracted from PDF: {file_path}"
+                        logger.error(error_msg)
+                        raise ValueError("No readable text found in the PDF document")
+                        
+            elif normalized_file_type == 'docx':
                 try:
-                    with open(file_path, 'r', encoding='latin-1') as f:
-                        text_content = f.read()
-                except Exception as e_txt:
-                    logger.error(f"Error extracting TXT text from {file_path} with multiple encodings: {e_txt}", exc_info=True)
-            except Exception as e:
-                logger.error(f"Error extracting TXT text from {file_path}: {e}", exc_info=True)
-        else:
-            print(f"--- DEBUG KBM: UNMATCHED normalized_file_type: '{normalized_file_type}' ---")
-            logger.error(f"Unsupported file type ('{normalized_file_type}') for actual file path: {file_path}")
-            return ""
-        print(f"--- DEBUG KBM: _extract_text finished, text length: {len(text_content)} ---")
-        return text_content
+                    doc = docx.Document(file_path)
+                    for para in doc.paragraphs:
+                        if para.text.strip():
+                            text_content += para.text.strip() + "\n"
+                    
+                    if not text_content.strip():
+                        raise ValueError("No readable text found in the DOCX document")
+                        
+                except Exception as e:
+                    logger.error(f"Error extracting DOCX text from {file_path}: {str(e)}", exc_info=True)
+                    raise ValueError(f"Unable to read DOCX document: {str(e)}")
+                    
+            elif normalized_file_type == 'txt':
+                try:
+                    # Try UTF-8 first, fall back to latin-1
+                    try:
+                        with open(file_path, 'r', encoding='utf-8-sig') as f:
+                            text_content = f.read()
+                    except UnicodeDecodeError:
+                        with open(file_path, 'r', encoding='latin-1') as f:
+                            text_content = f.read()
+                    
+                    if not text_content.strip():
+                        raise ValueError("Text file is empty")
+                        
+                except Exception as e:
+                    logger.error(f"Error extracting text from {file_path}: {str(e)}", exc_info=True)
+                    raise ValueError(f"Unable to read text file: {str(e)}")
+                    
+            else:
+                error_msg = f"Unsupported file type: {normalized_file_type}"
+                logger.error(error_msg)
+                raise ValueError(error_msg)
+                
+        except Exception as e:
+            logger.error(f"Unexpected error processing {file_path}: {str(e)}", exc_info=True)
+            raise
+            
+        # Final validation of extracted content
+        if not text_content.strip():
+            error_msg = f"No text content extracted from file: {file_path}"
+            logger.error(error_msg)
+            raise ValueError("No readable text content found in the document")
+            
+        logger.debug(f"Successfully extracted {len(text_content)} characters from {file_path}")
+        return text_content.strip()
 
     def _split_text_into_chunks(self, text, max_chunk_size=500):
         """(Deprecated) Split text into chunks of approximately max_chunk_size tokens."""
@@ -215,7 +358,7 @@ class KnowledgeBaseManager:
             )
             chunks = text_splitter.split_text(text)
             logger.info(f"TokenTextSplitter: Chunked text into {len(chunks)} chunks (target size: {chunk_size_tokens} tokens, overlap: {chunk_overlap_tokens} tokens).")
-            meaningful_chunks = [chunk for chunk in chunks if chunk.strip()]
+            meaningful_chunks = [chunk for chunk in chunks if chunk is not None]
             if len(meaningful_chunks) < len(chunks):
                 logger.info(f"Filtered out {len(chunks) - len(meaningful_chunks)} empty chunks after token splitting.")
             return meaningful_chunks
