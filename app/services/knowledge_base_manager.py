@@ -306,6 +306,22 @@ class KnowledgeBaseManager:
         # This is a placeholder - you would implement your actual AI comment generation logic here
         return f"Great post by {post_author}! I found this particularly interesting: {relevant_context[:100]}..."
 
+    def remove_chunk_from_index(self, faiss_index_id):
+        """Remove a chunk from the FAISS index.
+        Args:
+            faiss_index_id: The ID of the chunk in the FAISS index
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            if self.index and faiss_index_id is not None:
+                self.index.remove_ids([faiss_index_id])
+                self.save_kb_components()
+                return True
+        except Exception as e:
+            logger.error(f"Error removing chunk from FAISS index: {e}", exc_info=True)
+            return False
+
     def save_index(self, index_path, map_path):
         """Save FAISS index and mappings to disk."""
         if self.index is not None:

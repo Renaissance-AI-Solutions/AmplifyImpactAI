@@ -130,8 +130,8 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <form action="{{ url_for('kb_bp.delete_chunk') }}" method="POST" id="deleteChunkForm">
-                    {{ form.hidden_tag() }}
+                <form action="{{ url_for('kb_bp.delete_chunk', chunk_id=0) }}" method="POST" id="deleteChunkForm">
+                    {{ form.csrf_token }}
                     <input type="hidden" name="chunk_id" id="chunkId" value="">
                     <button type="submit" class="btn btn-danger">Delete</button>
                 </form>

@@ -104,7 +104,7 @@ def manage_knowledge_base():
                          storage_used=storage_used_val)
 
 
-@kb_bp.route('/<int:document_id>')
+@kb_bp.route('/documents/<int:document_id>')
 @login_required
 def view_document(document_id):
     document = KnowledgeDocument.query.get_or_404(document_id)
