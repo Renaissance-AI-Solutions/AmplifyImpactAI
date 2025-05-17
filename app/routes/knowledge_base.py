@@ -184,7 +184,7 @@ def delete_document():
     document = KnowledgeDocument.query.get_or_404(document_id)
     if document.portal_user_id != current_user.id:
         flash('Unauthorized access to document.', 'danger')
-        return redirect(url_for('kb_bp.index'))
+        return redirect(url_for('kb_bp.manage_knowledge_base'))
     
     try:
         # Delete file
@@ -199,12 +199,12 @@ def delete_document():
         db.session.commit()
         
         flash('Document deleted successfully!', 'success')
-        return redirect(url_for('kb_bp.index'))
+        return redirect(url_for('kb_bp.manage_knowledge_base'))
         
     except Exception as e:
         current_app.logger.error(f"Error deleting document {document_id}: {e}")
         flash('Error deleting document.', 'danger')
-        return redirect(url_for('kb_bp.index'))
+        return redirect(url_for('kb_bp.manage_knowledge_base'))
 
 @kb_bp.route('/chunks/<int:chunk_id>/delete', methods=['POST'])
 @login_required
