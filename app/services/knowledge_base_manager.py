@@ -83,7 +83,10 @@ class KnowledgeBaseManager:
         self.portal_user_id = portal_user_id
         self.embedding_model = embedding_model
         self.index = faiss_index
+        # Properly initialize all mapping attributes
         self.id_map = faiss_id_to_chunk_pk_map
+        self.index_to_chunk_id = self.id_map  # Alias for backward compatibility
+        self.chunk_id_to_index = {}  # Initialize reverse mapping
         if self.embedding_model is None or self.index is None:
             logger.warning(f"KBM instance for user {portal_user_id} created, but global embedding_model or faiss_index is None. KB functionality will be impaired. Check startup logs.")
 
@@ -237,19 +240,12 @@ class KnowledgeBaseManager:
         """Add a chunk to the FAISS index."""
         if self.index is None:
             self._initialize_index()
-            
         # Get embedding
         embedding = self._get_embedding(chunk.chunk_text)
-        
-        # Add to index
         self.index.add(np.array([embedding]))
-        
-        # Update mappings
         index_position = self.index.ntotal - 1
-        self.index_to_chunk_id[index_position] = chunk.id
+        self.id_map[index_position] = chunk.id  # Use self.id_map consistently
         self.chunk_id_to_index[chunk.id] = index_position
-        
-        # Update chunk with FAISS index position
         chunk.faiss_index_id = index_position
         db.session.commit()
 
@@ -266,19 +262,13 @@ class KnowledgeBaseManager:
         """Search for chunks most similar to the query."""
         if self.index is None:
             return []
-            
         query_embedding = self._get_embedding(query)
-        
-        # Search in FAISS
         D, I = self.index.search(np.array([query_embedding]), top_k)
-        
-        # Get chunks
         similar_chunks = []
         for i in I[0]:
             if i < 0:
                 continue
-                
-            chunk_id = self.index_to_chunk_id.get(i)
+            chunk_id = self.id_map.get(i)  # Use self.id_map instead of self.index_to_chunk_id
             if chunk_id:
                 chunk = db.session.get(KnowledgeChunk, chunk_id)
                 if chunk:
@@ -286,7 +276,6 @@ class KnowledgeBaseManager:
                         'chunk': chunk,
                         'score': D[0][list(I[0]).index(i)]
                     })
-        
         return similar_chunks
 
     def generate_comment(self, post_content, post_author, post_context):
@@ -321,12 +310,10 @@ class KnowledgeBaseManager:
         """Save FAISS index and mappings to disk."""
         if self.index is not None:
             faiss.write_index(self.index, index_path)
-            
-            # Save mappings
             import pickle
             with open(map_path, 'wb') as f:
                 pickle.dump({
-                    'index_to_chunk_id': self.index_to_chunk_id,
+                    'index_to_chunk_id': self.id_map,  # Use self.id_map consistently
                     'chunk_id_to_index': self.chunk_id_to_index
                 }, f)
 
