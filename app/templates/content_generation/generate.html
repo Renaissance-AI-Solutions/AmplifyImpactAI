@@ -1,90 +1,155 @@
-{% extends "base.html" %}
+{% extends "layouts/base.html" %}
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <div class="mb-8">
-        <h1 class="text-3xl font-bold mb-4">Generate Posts from Knowledge Base</h1>
-        <p class="text-gray-600">Select a document and customize your post generation settings.</p>
+        <h1 class="text-3xl font-bold mb-4">Generate Content from Knowledge Base</h1>
+        <p class="text-gray-600">Create optimized content for different platforms using your knowledge documents.</p>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <!-- Document Selection and Topics -->
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-xl font-semibold mb-4">1. Select Document & Extract Topics</h2>
-            <select id="documentSelect" class="w-full p-2 border rounded mb-4">
-                <option value="">Select a document...</option>
-                {% for doc in documents %}
-                <option value="{{ doc.id }}">{{ doc.original_filename }}</option>
-                {% endfor %}
-            </select>
-
-            <button id="extractTopics" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 mb-4">
-                Extract Topics
-            </button>
-
-            <div id="topicsContainer" class="hidden">
-                <h3 class="font-semibold mb-2">Extracted Topics:</h3>
-                <div id="topicsList" class="space-y-2">
-                    <!-- Topics will be inserted here -->
-                </div>
-            </div>
-        </div>
-
-        <!-- Post Generation Settings -->
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-xl font-semibold mb-4">2. Configure Post Settings</h2>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Content Generation Form -->
+        <div class="bg-white rounded-lg shadow p-6 lg:col-span-1">
+            <h2 class="text-xl font-semibold mb-4">Content Generation Form</h2>
             
-            <div class="mb-4">
-                <label class="block text-sm font-medium mb-2">Template Type</label>
-                <select id="templateType" class="w-full p-2 border rounded">
-                    <option value="informational">Informational</option>
-                    <option value="promotional">Promotional</option>
-                    <option value="educational">Educational</option>
-                    <option value="engagement">Engagement</option>
-                </select>
-            </div>
-
-            <div class="mb-4">
-                <label class="block text-sm font-medium mb-2">Social Media Account</label>
-                <select id="accountSelect" class="w-full p-2 border rounded">
-                    <option value="">Select an account...</option>
-                    {% for account in accounts %}
-                    <option value="{{ account.id }}">{{ account.platform_name }}: {{ account.account_display_name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div class="mb-4">
-                <label class="block text-sm font-medium mb-2">Schedule Time</label>
-                <input type="datetime-local" id="scheduleTime" class="w-full p-2 border rounded">
-            </div>
-
-            <button id="generatePost" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
-                Generate Post
-            </button>
+            <form method="POST" action="{{ url_for('content_generation.generate') }}" id="contentGenerationForm">
+                {{ form.hidden_tag() }}
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">{{ form.document_id.label }}</label>
+                    {{ form.document_id(class="w-full p-2 border rounded") }}
+                    {% if form.document_id.errors %}
+                        <div class="text-red-500 text-sm mt-1">{{ form.document_id.errors[0] }}</div>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">{{ form.platform.label }}</label>
+                    {{ form.platform(class="w-full p-2 border rounded") }}
+                    {% if form.platform.errors %}
+                        <div class="text-red-500 text-sm mt-1">{{ form.platform.errors[0] }}</div>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">{{ form.tone.label }}</label>
+                    {{ form.tone(class="w-full p-2 border rounded") }}
+                    {% if form.tone.errors %}
+                        <div class="text-red-500 text-sm mt-1">{{ form.tone.errors[0] }}</div>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">{{ form.style.label }}</label>
+                    {{ form.style(class="w-full p-2 border rounded") }}
+                    {% if form.style.errors %}
+                        <div class="text-red-500 text-sm mt-1">{{ form.style.errors[0] }}</div>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">{{ form.topic.label }}</label>
+                    {{ form.topic(class="w-full p-2 border rounded", placeholder="e.g., marketing, leadership") }}
+                    {% if form.topic.errors %}
+                        <div class="text-red-500 text-sm mt-1">{{ form.topic.errors[0] }}</div>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">{{ form.max_length.label }}</label>
+                    {{ form.max_length(class="w-full p-2 border rounded", min="10", max="3000") }}
+                    <div class="text-gray-500 text-xs mt-1">Platform limits: Twitter (280), LinkedIn (3000), Facebook (2000), Instagram (2200)</div>
+                    {% if form.max_length.errors %}
+                        <div class="text-red-500 text-sm mt-1">{{ form.max_length.errors[0] }}</div>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-4 flex space-x-4">
+                    <div>
+                        {{ form.include_hashtags(class="mr-2") }}
+                        <label for="{{ form.include_hashtags.id }}">{{ form.include_hashtags.label }}</label>
+                    </div>
+                    <div>
+                        {{ form.include_emoji(class="mr-2") }}
+                        <label for="{{ form.include_emoji.id }}">{{ form.include_emoji.label }}</label>
+                    </div>
+                </div>
+                
+                <div class="mt-6 flex space-x-2">
+                    {{ form.generate_button(class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600") }}
+                </div>
+            </form>
         </div>
 
-        <!-- Generated Post Preview -->
-        <div class="bg-white rounded-lg shadow p-6 md:col-span-2">
-            <h2 class="text-xl font-semibold mb-4">3. Preview Generated Post</h2>
-            <div id="postPreview" class="hidden">
-                <div class="mb-4">
-                    <h3 class="font-semibold mb-2">Post Content:</h3>
-                    <div id="postContent" class="p-4 bg-gray-50 rounded border"></div>
+        <!-- Generated Content Preview -->
+        <div class="bg-white rounded-lg shadow p-6 lg:col-span-2">
+            <h2 class="text-xl font-semibold mb-4">Generated Content</h2>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="p-4 mb-4 rounded {% if category == 'success' %}bg-green-100 text-green-700{% elif category == 'warning' %}bg-yellow-100 text-yellow-700{% elif category == 'danger' %}bg-red-100 text-red-700{% else %}bg-blue-100 text-blue-700{% endif %}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            {% if generated_content %}
+                <div class="mb-6">
+                    <div class="relative">
+                        <div id="contentPreview" class="p-4 bg-gray-50 rounded border mb-2 whitespace-pre-wrap" style="min-height: 200px;">
+                            {{ generated_content }}
+                        </div>
+                        <div class="absolute top-2 right-2">
+                            <button id="copyButton" class="bg-gray-200 hover:bg-gray-300 text-gray-700 p-2 rounded">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                                    <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="text-right text-sm text-gray-500">
+                        <span id="charCount">{{ generated_content|length }}</span> characters
+                    </div>
+                    <div class="mt-4 flex space-x-2">
+                        <form method="POST" action="{{ url_for('content_generation.generate') }}">
+                            {{ form.hidden_tag() }}
+                            {{ form.document_id(value=form.document_id.data, type="hidden") }}
+                            {{ form.platform(value=form.platform.data, type="hidden") }}
+                            {{ form.tone(value=form.tone.data, type="hidden") }}
+                            {{ form.style(value=form.style.data, type="hidden") }}
+                            {{ form.topic(value=form.topic.data, type="hidden") }}
+                            {{ form.max_length(value=form.max_length.data, type="hidden") }}
+                            {{ form.include_hashtags(checked=form.include_hashtags.data, type="hidden") }}
+                            {{ form.include_emoji(checked=form.include_emoji.data, type="hidden") }}
+                            {{ form.save_button(class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600") }}
+                        </form>
+                        <button id="regenerateButton" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+                            Regenerate
+                        </button>
+                    </div>
                 </div>
-                <div class="mb-4">
-                    <h3 class="font-semibold mb-2">Schedule Information:</h3>
-                    <div id="scheduleInfo" class="text-gray-600"></div>
+            {% else %}
+                <div class="p-4 bg-gray-50 rounded border text-center text-gray-500">
+                    Generated content will appear here. Fill out the form and click "Generate Content".
                 </div>
-                <div class="flex space-x-4">
-                    <button id="schedulePost" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
-                        Schedule Post
-                    </button>
-                    <button id="regeneratePost" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
-                        Regenerate
-                    </button>
+            {% endif %}
+            
+            {% if recent_drafts %}
+                <div class="mt-8">
+                    <h3 class="font-semibold mb-2">Recent Drafts</h3>
+                    <div class="space-y-2">
+                        {% for draft in recent_drafts %}
+                            <div class="p-3 bg-gray-50 rounded border hover:bg-gray-100">
+                                <div class="text-sm text-gray-500 mb-1">{{ draft.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+                                <div class="truncate">{{ draft.content }}</div>
+                            </div>
+                        {% endfor %}
+                    </div>
                 </div>
-            </div>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -100,120 +165,67 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    let currentTopics = [];
-    let selectedTopic = null;
+    // Copy to clipboard functionality
+    const copyButton = document.getElementById('copyButton');
+    if (copyButton) {
+        copyButton.addEventListener('click', function() {
+            const contentPreview = document.getElementById('contentPreview');
+            if (contentPreview) {
+                navigator.clipboard.writeText(contentPreview.textContent.trim())
+                    .then(() => {
+                        showToast('Content copied to clipboard!', 'success');
+                    })
+                    .catch(err => {
+                        showToast('Failed to copy content', 'error');
+                        console.error('Could not copy text: ', err);
+                    });
+            }
+        });
+    }
     
-    // Extract topics when document is selected
-    document.getElementById('extractTopics').addEventListener('click', async function() {
-        const documentId = document.getElementById('documentSelect').value;
-        if (!documentId) {
-            showToast('Please select a document first', 'error');
-            return;
-        }
-
-        try {
-            const response = await fetch(`/api/document/${documentId}/topics`);
-            const data = await response.json();
-            
-            if (data.success) {
-                currentTopics = data.topics;
-                displayTopics(data.topics);
-            } else {
-                throw new Error(data.error);
+    // Regenerate button functionality
+    const regenerateButton = document.getElementById('regenerateButton');
+    if (regenerateButton) {
+        regenerateButton.addEventListener('click', function() {
+            const form = document.getElementById('contentGenerationForm');
+            if (form) {
+                form.submit();
             }
-        } catch (error) {
-            showToast(error.message || 'Failed to extract topics', 'error');
-        }
-    });
-
-    // Generate post when button is clicked
-    document.getElementById('generatePost').addEventListener('click', async function() {
-        const documentId = document.getElementById('documentSelect').value;
-        const accountId = document.getElementById('accountSelect').value;
-        const templateType = document.getElementById('templateType').value;
-        const scheduleTime = document.getElementById('scheduleTime').value;
-
-        if (!documentId || !accountId) {
-            showToast('Please select both document and account', 'error');
-            return;
-        }
-
-        try {
-            const response = await fetch('/api/generate-post', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    document_id: documentId,
-                    managed_account_id: accountId,
-                    template_type: templateType,
-                    scheduled_time: scheduleTime ? new Date(scheduleTime).toISOString() : null
-                })
-            });
-
-            const data = await response.json();
-            if (data.success) {
-                displayGeneratedPost(data.post);
-                showToast('Post generated successfully!');
-            } else {
-                throw new Error(data.error);
-            }
-        } catch (error) {
-            showToast(error.message || 'Failed to generate post', 'error');
-        }
-    });
-
-    // Schedule post when button is clicked
-    document.getElementById('schedulePost').addEventListener('click', async function() {
-        showToast('Post scheduled successfully!');
-        // The post is already scheduled when generated, this is just for UX feedback
-    });
-
-    // Regenerate post when button is clicked
-    document.getElementById('regeneratePost').addEventListener('click', function() {
-        document.getElementById('generatePost').click();
-    });
-
-    // Helper function to display topics
-    function displayTopics(topics) {
-        const container = document.getElementById('topicsContainer');
-        const list = document.getElementById('topicsList');
-        container.classList.remove('hidden');
-        
-        list.innerHTML = topics.map((topic, index) => `
-            <div class="p-2 border rounded hover:bg-gray-50 cursor-pointer ${index === 0 ? 'bg-blue-50' : ''}"
-                 data-topic-index="${index}">
-                <div class="font-medium">${topic.terms.join(', ')}</div>
-                <div class="text-sm text-gray-600">Score: ${topic.score.toFixed(2)}</div>
-                <div class="text-sm text-gray-500 truncate">${topic.sample_text || ''}</div>
-            </div>
-        `).join('');
+        });
     }
-
-    // Helper function to display generated post
-    function displayGeneratedPost(post) {
-        const preview = document.getElementById('postPreview');
-        const content = document.getElementById('postContent');
-        const scheduleInfo = document.getElementById('scheduleInfo');
-        
-        preview.classList.remove('hidden');
-        content.textContent = post.content;
-        scheduleInfo.textContent = `Scheduled for: ${new Date(post.scheduled_time).toLocaleString()}`;
+    
+    // Character counter for max_length input
+    const maxLengthInput = document.getElementById('max_length');
+    const platformSelect = document.getElementById('platform');
+    if (maxLengthInput && platformSelect) {
+        platformSelect.addEventListener('change', function() {
+            const platformLimits = {
+                'twitter': 280,
+                'linkedin': 3000,
+                'facebook': 2000,
+                'instagram': 2200
+            };
+            const selectedPlatform = platformSelect.value;
+            const limit = platformLimits[selectedPlatform] || 280;
+            maxLengthInput.value = limit;
+        });
     }
-
-    // Helper function to show toast messages
+    
+    // Show toast messages
     function showToast(message, type = 'success') {
         const toast = document.getElementById('toast');
         const toastMessage = document.getElementById('toastMessage');
         
-        toast.classList.remove('hidden', 'bg-green-500', 'bg-red-500');
-        toast.classList.add(type === 'success' ? 'bg-green-500' : 'bg-red-500');
-        toastMessage.textContent = message;
-        
-        setTimeout(() => {
-            toast.classList.add('hidden');
-        }, 3000);
+        if (toast && toastMessage) {
+            toast.classList.remove('hidden', 'bg-green-500', 'bg-red-500');
+            toast.classList.add(type === 'success' ? 'bg-green-500' : 'bg-red-500');
+            toastMessage.textContent = message;
+            
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
     }
 });
 </script>

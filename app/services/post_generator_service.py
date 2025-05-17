@@ -1,5 +1,6 @@
 import logging
-from typing import List, Dict, Optional
+import random
+from typing import List, Dict, Optional, Any
 from datetime import datetime, timezone
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -21,6 +22,13 @@ class PostGeneratorService:
             stop_words='english',
             ngram_range=(1, 2)
         )
+        # Platform-specific character limits
+        self.platform_limits = {
+            'twitter': 280,
+            'linkedin': 3000,
+            'facebook': 2000,
+            'instagram': 2200
+        }
         print("--- DEBUG: PostGeneratorService initialized (without immediate KBManager) ---")
 
     def _get_kb_manager(self):
@@ -117,7 +125,6 @@ class PostGeneratorService:
             template_options = templates.get(template_type, templates['informational'])
             
             # Select a template randomly
-            import random
             template = random.choice(template_options)
             
             # Get the most relevant chunk
@@ -139,6 +146,168 @@ class PostGeneratorService:
             
         except Exception as e:
             logger.error(f"Error generating post content: {e}")
+            return ""
+            
+    def generate_content(self, document_id: int, platform: str = 'twitter', tone: str = 'informative',
+                        style: str = 'concise', topic: Optional[str] = None, max_length: int = 280,
+                        include_hashtags: bool = True, include_emoji: bool = True) -> str:
+        """Generate content optimized for a specific platform with enhanced customization.
+        
+        Args:
+            document_id: ID of the knowledge document to use
+            platform: Target platform (twitter, linkedin, facebook, instagram)
+            tone: Tone of the content (informative, friendly, formal, urgent, inspirational, humorous)
+            style: Style of the content (concise, detailed, question, story)
+            topic: Optional specific topic to focus on
+            max_length: Maximum length of the content in characters
+            include_hashtags: Whether to include hashtags
+            include_emoji: Whether to include emoji
+            
+        Returns:
+            Generated content string
+        """
+        try:
+            # Validate inputs
+            if not document_id:
+                logger.error("Missing document_id for content generation")
+                return ""
+                
+            # Apply platform-specific limits if needed
+            platform_limit = self.platform_limits.get(platform, 280)
+            max_length = min(max_length, platform_limit)
+            
+            # Get document topics
+            topics = self.extract_topics(document_id)
+            if not topics:
+                logger.warning(f"No topics found for document {document_id}")
+                return ""
+                
+            # Select most relevant topic or filter by user-specified topic
+            selected_topic = None
+            if topic:
+                # Try to find a topic that matches the user's request
+                for t in topics:
+                    if any(term.lower() in topic.lower() for term in t['terms']):
+                        selected_topic = t
+                        break
+            
+            # If no matching topic found, use the highest-scoring one
+            if not selected_topic and topics:
+                selected_topic = topics[0]
+                
+            if not selected_topic:
+                logger.warning("Could not select a relevant topic")
+                return ""
+                
+            # Map tone to template type
+            tone_to_template = {
+                'informative': 'informational',
+                'friendly': 'engagement',
+                'formal': 'educational',
+                'urgent': 'promotional',
+                'inspirational': 'promotional',
+                'humorous': 'engagement'
+            }
+            template_type = tone_to_template.get(tone, 'informational')
+            
+            # Generate base content
+            content = self.generate_post_content(selected_topic, template_type)
+            if not content:
+                logger.warning("Failed to generate base content")
+                return ""
+                
+            # Apply style modifications
+            if style == 'detailed':
+                # Add more details from the chunk
+                chunk = selected_topic['chunks'][0] if selected_topic['chunks'] else None
+                if chunk and len(content) + 100 <= max_length:
+                    additional_detail = chunk.chunk_text[200:300] if len(chunk.chunk_text) > 200 else ""
+                    if additional_detail:
+                        content += f" {additional_detail}..."
+            elif style == 'question':
+                # Convert to question format if not already
+                if not any(q in content for q in ['?', 'What', 'How', 'Why', 'When', 'Where', 'Who']):
+                    topic_terms = ' '.join(selected_topic['terms'][:2])
+                    question_starters = [
+                        f"What do you think about {topic_terms}?",
+                        f"Have you considered how {topic_terms} impacts your work?",
+                        f"Did you know about {topic_terms}?"
+                    ]
+                    content = f"{random.choice(question_starters)} {content}"
+            elif style == 'story':
+                # Add storytelling elements
+                story_intros = [
+                    "Here's a fascinating insight: ",
+                    "I recently discovered that ",
+                    "Let me share something interesting: "
+                ]
+                content = f"{random.choice(story_intros)}{content}"
+                
+            # Add hashtags if requested
+            if include_hashtags:
+                hashtags = [f"#{term.replace(' ', '')}" for term in selected_topic['terms'][:2]]
+                hashtag_text = ' '.join(hashtags)
+                if len(content) + len(hashtag_text) + 1 <= max_length:
+                    content += f"\n{hashtag_text}"
+                    
+            # Add emoji if requested
+            if include_emoji:
+                # Map topics to relevant emoji
+                topic_first_term = selected_topic['terms'][0].lower() if selected_topic['terms'] else ""
+                emoji_map = {
+                    'business': '💼',
+                    'money': '💰',
+                    'growth': '📈',
+                    'success': '🏆',
+                    'technology': '💻',
+                    'innovation': '💡',
+                    'health': '🩺',
+                    'education': '📚',
+                    'research': '🔬',
+                    'data': '📊',
+                    'marketing': '📱',
+                    'social': '🤝',
+                    'environment': '🌿',
+                    'climate': '🌍',
+                    'finance': '💵',
+                    'investment': '📋',
+                    'leadership': '👑',
+                    'development': '🛠️',
+                    'strategy': '🎯',
+                    'planning': '📝'
+                }
+                
+                # Find matching emoji or use default
+                emoji = None
+                for key, value in emoji_map.items():
+                    if key in topic_first_term:
+                        emoji = value
+                        break
+                        
+                if not emoji:
+                    # Default emoji based on tone
+                    tone_emoji = {
+                        'informative': '📌',
+                        'friendly': '😊',
+                        'formal': '📢',
+                        'urgent': '⚡',
+                        'inspirational': '✨',
+                        'humorous': '😄'
+                    }
+                    emoji = tone_emoji.get(tone, '📌')
+                    
+                # Add emoji to beginning if it fits
+                if len(content) + 2 <= max_length:
+                    content = f"{emoji} {content}"
+                    
+            # Ensure content is within max_length
+            if len(content) > max_length:
+                content = content[:max_length-3] + "..."
+                
+            return content
+            
+        except Exception as e:
+            logger.error(f"Error in generate_content: {e}", exc_info=True)
             return ""
             
     def create_scheduled_post(

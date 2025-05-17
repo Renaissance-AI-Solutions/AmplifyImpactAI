@@ -1,9 +1,9 @@
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed, FileRequired
-from wtforms import StringField, PasswordField, BooleanField, SubmitField, TextAreaField, SelectField, DateTimeLocalField
-from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional, ValidationError
+from wtforms import StringField, PasswordField, BooleanField, SubmitField, TextAreaField, SelectField, DateTimeLocalField, IntegerField
+from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional, ValidationError, NumberRange
 from app import db 
-from app.models import PortalUser, ManagedAccount
+from app.models import PortalUser, ManagedAccount, KnowledgeDocument
 
 class LoginForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
@@ -86,3 +86,51 @@ def get_managed_account_choices(portal_user_id, platform='X', add_blank=False):
     if add_blank:
         choices.insert(0, ('', '--- Select Account ---'))
     return choices
+
+
+def get_document_choices(portal_user_id, add_blank=False):
+    """Get a list of knowledge documents for the user."""
+    documents = db.session.scalars(
+        db.select(KnowledgeDocument)
+        .filter_by(portal_user_id=portal_user_id, status='processed')
+        .order_by(KnowledgeDocument.uploaded_at.desc())
+    ).all()
+    choices = [(doc.id, doc.filename.split('/')[-1]) for doc in documents]
+    if add_blank:
+        choices.insert(0, ('', '--- Select Document ---'))
+    return choices
+
+
+class ContentGenerationForm(FlaskForm):
+    """Form for generating content from knowledge documents."""
+    document_id = SelectField('Knowledge Document', coerce=int, validators=[DataRequired()])
+    platform = SelectField('Platform', choices=[
+        ('twitter', 'Twitter/X'),
+        ('linkedin', 'LinkedIn'),
+        ('facebook', 'Facebook'),
+        ('instagram', 'Instagram')
+    ], validators=[DataRequired()])
+    tone = SelectField('Tone', choices=[
+        ('informative', 'Informative'),
+        ('friendly', 'Friendly'),
+        ('formal', 'Formal'),
+        ('urgent', 'Urgent'),
+        ('inspirational', 'Inspirational'),
+        ('humorous', 'Humorous')
+    ], validators=[DataRequired()])
+    style = SelectField('Style', choices=[
+        ('concise', 'Concise'),
+        ('detailed', 'Detailed'),
+        ('question', 'Question'),
+        ('story', 'Story-telling')
+    ], validators=[DataRequired()])
+    topic = StringField('Specific Topic/Focus (optional)', validators=[Optional(), Length(max=200)])
+    max_length = IntegerField('Maximum Length (characters)', validators=[
+        DataRequired(),
+        NumberRange(min=10, max=3000, message='Length must be between 10 and 3000 characters')
+    ], default=280)
+    include_hashtags = BooleanField('Include Hashtags', default=True)
+    include_emoji = BooleanField('Include Emoji', default=True)
+    generate_button = SubmitField('Generate Content')
+    copy_button = SubmitField('Copy to Clipboard')
+    save_button = SubmitField('Save as Draft')
