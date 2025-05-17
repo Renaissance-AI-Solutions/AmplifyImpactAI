@@ -17,9 +17,14 @@
                 
                 <div class="mb-4">
                     <label class="block text-sm font-medium mb-2">{{ form.document_id.label }}</label>
-                    {{ form.document_id(class="w-full p-2 border rounded") }}
+                    {{ form.document_id(class="w-full p-2 border rounded" + (" border-red-500" if form.document_id.errors else "")) }}
                     {% if form.document_id.errors %}
                         <div class="text-red-500 text-sm mt-1">{{ form.document_id.errors[0] }}</div>
+                    {% endif %}
+                    {% if form.document_id.choices|length <= 1 %}
+                        <div class="mt-2 p-3 bg-yellow-50 text-yellow-700 rounded text-sm">
+                            No documents found. Please <a href="{{ url_for('knowledge_base.upload') }}" class="text-blue-600 hover:underline">upload a document</a> first.
+                        </div>
                     {% endif %}
                 </div>
                 
@@ -76,7 +81,16 @@
                 </div>
                 
                 <div class="mt-6 flex space-x-2">
-                    {{ form.generate_button(class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600") }}
+                    {{ form.generate_button(
+                        class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600" ~ 
+                        (' opacity-50 cursor-not-allowed' if form.document_id.choices|length <= 1 else ''),
+                        disabled=('disabled' if form.document_id.choices|length <= 1 else None)
+                    ) }}
+                    {{ form.save_button(
+                        class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 ml-2" ~
+                        (' opacity-50 cursor-not-allowed' if form.document_id.choices|length <= 1 else ''),
+                        disabled=('disabled' if form.document_id.choices|length <= 1 else None)
+                    ) }}
                 </div>
             </form>
         </div>

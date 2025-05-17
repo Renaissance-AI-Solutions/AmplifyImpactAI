@@ -33,48 +33,52 @@ def generate():
         try:
             # Get the selected document
             document_id = form.document_id.data
-            document = db.session.get(KnowledgeDocument, document_id)
             
-            if not document or document.portal_user_id != current_user.id:
-                flash('Document not found or access denied', 'danger')
-                return redirect(url_for('content_generation.generate'))
-            
-            # Extract parameters from form
-            params = {
-                'document_id': document_id,
-                'platform': form.platform.data,
-                'tone': form.tone.data,
-                'style': form.style.data,
-                'topic': form.topic.data,
-                'max_length': form.max_length.data,
-                'include_hashtags': form.include_hashtags.data,
-                'include_emoji': form.include_emoji.data
-            }
-            
-            # Generate content
-            generated_content = post_generator.generate_content(**params)
-            
-            # Handle save as draft if requested
-            if form.save_button.data and generated_content:
-                # Find the first account for the platform or use None
-                account = db.session.scalar(
-                    db.select(ManagedAccount)
-                    .filter_by(portal_user_id=current_user.id, platform_name=form.platform.data, is_active=True)
-                )
+            # Check if document_id is None (empty string was submitted)
+            if document_id is None:
+                flash('Please select a document', 'warning')
+            else:
+                document = db.session.get(KnowledgeDocument, document_id)
                 
-                # Create a draft post
-                draft = ScheduledPost(
-                    portal_user_id=current_user.id,
-                    managed_account_id=account.id if account else None,
-                    content=generated_content,
-                    status="draft"
-                )
-                db.session.add(draft)
-                db.session.commit()
-                
-                flash('Content saved as draft', 'success')
-                return redirect(url_for('content_generation.generate'))
-                
+                if not document or document.portal_user_id != current_user.id:
+                    flash('Document not found or access denied', 'danger')
+                else:
+                    # Extract parameters from form
+                    params = {
+                        'document_id': document_id,
+                        'platform': form.platform.data,
+                        'tone': form.tone.data,
+                        'style': form.style.data,
+                        'topic': form.topic.data,
+                        'max_length': form.max_length.data,
+                        'include_hashtags': form.include_hashtags.data,
+                        'include_emoji': form.include_emoji.data
+                    }
+                    
+                    # Generate content
+                    generated_content = post_generator.generate_content(**params)
+                    
+                    # Handle save as draft if requested
+                    if form.save_button.data and generated_content:
+                        # Find the first account for the platform or use None
+                        account = db.session.scalar(
+                            db.select(ManagedAccount)
+                            .filter_by(portal_user_id=current_user.id, platform_name=form.platform.data, is_active=True)
+                        )
+                        
+                        # Create a draft post
+                        draft = ScheduledPost(
+                            portal_user_id=current_user.id,
+                            managed_account_id=account.id if account else None,
+                            content=generated_content,
+                            status="draft"
+                        )
+                        db.session.add(draft)
+                        db.session.commit()
+                        
+                        flash('Content saved as draft', 'success')
+                        return redirect(url_for('content_generation.generate'))
+            
         except Exception as e:
             logger.error(f"Error generating content: {e}", exc_info=True)
             flash(f'Error generating content: {str(e)}', 'danger')

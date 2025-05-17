@@ -88,22 +88,28 @@ def get_managed_account_choices(portal_user_id, platform='X', add_blank=False):
     return choices
 
 
-def get_document_choices(portal_user_id, add_blank=False):
+def get_document_choices(portal_user_id, add_blank=True):
     """Get a list of knowledge documents for the user."""
     documents = db.session.scalars(
         db.select(KnowledgeDocument)
-        .filter_by(portal_user_id=portal_user_id, status='processed')
+        .filter_by(portal_user_id=portal_user_id)
         .order_by(KnowledgeDocument.uploaded_at.desc())
     ).all()
-    choices = [(doc.id, doc.filename.split('/')[-1]) for doc in documents]
+    
+    choices = [(str(doc.id), f"{doc.filename} (uploaded {doc.uploaded_at.strftime('%Y-%m-%d')})") 
+              for doc in documents]
+    
     if add_blank:
-        choices.insert(0, ('', '--- Select Document ---'))
+        choices.insert(0, ('', '--- Select a Document ---'))
+    
     return choices
 
 
 class ContentGenerationForm(FlaskForm):
     """Form for generating content from knowledge documents."""
-    document_id = SelectField('Knowledge Document', coerce=int, validators=[DataRequired()])
+    document_id = SelectField('Knowledge Document', 
+                           coerce=lambda x: int(x) if x else None,
+                           validators=[DataRequired(message='Please select a document')])
     platform = SelectField('Platform', choices=[
         ('twitter', 'Twitter/X'),
         ('linkedin', 'LinkedIn'),
