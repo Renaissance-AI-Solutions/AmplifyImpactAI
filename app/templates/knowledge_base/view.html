@@ -130,8 +130,8 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <form action="{{ url_for('kb_bp.delete_chunk', chunk_id=0) }}" method="POST" id="deleteChunkForm">
-                    {{ form.csrf_token }}
+                <form id="deleteChunkForm" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="chunk_id" id="chunkId" value="">
                     <button type="submit" class="btn btn-danger">Delete</button>
                 </form>
@@ -199,19 +199,34 @@
     $('#deleteChunkForm').on('submit', function(e) {
         e.preventDefault();
         
-        var form = $(this);
         var chunkId = $('#chunkId').val();
+        if (!chunkId) {
+            alert('No chunk selected.');
+            return;
+        }
         
+        var form = $(this);
+        var submitButton = form.find('button[type="submit"]');
+        submitButton.prop('disabled', true);
+        
+        // Build the URL with the chunk ID
+        var deleteUrl = '/knowledge-base/chunks/' + chunkId + '/delete';
+        
+        // Submit via AJAX
         $.ajax({
-            url: '/knowledge-base/chunks/' + chunkId + '/delete',
+            url: deleteUrl,
             method: 'POST',
+            data: {
+                'csrf_token': $('input[name="csrf_token"]').val(),
+                'chunk_id': chunkId
+            },
             success: function(response) {
                 $('#deleteChunkModal').modal('hide');
-                alert('Chunk deleted successfully!');
                 window.location.reload();
             },
             error: function(xhr) {
-                alert('Error deleting chunk: ' + xhr.responseText);
+                submitButton.prop('disabled', false);
+                alert('Error deleting chunk: ' + (xhr.responseJSON?.message || xhr.statusText || 'Unknown error'));
             }
         });
     });

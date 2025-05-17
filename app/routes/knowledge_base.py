@@ -107,13 +107,32 @@ def manage_knowledge_base():
 @kb_bp.route('/documents/<int:document_id>')
 @login_required
 def view_document(document_id):
+    """View a specific document and its chunks.
+    
+    Args:
+        document_id: The ID of the document to view
+        
+    Returns:
+        Rendered template with document and chunks
+    """
     document = KnowledgeDocument.query.get_or_404(document_id)
+    
+    # Verify ownership
     if document.portal_user_id != current_user.id:
         flash('Unauthorized access to document.', 'danger')
-        return redirect(url_for('kb_bp.index'))
+        return redirect(url_for('kb_bp.manage_knowledge_base'))
     
-    chunks = KnowledgeChunk.query.filter_by(document_id=document_id).all()
-    return render_template('knowledge_base/view.html', document=document, chunks=chunks)
+    # Get all chunks for this document
+    chunks = KnowledgeChunk.query.filter_by(document_id=document_id)\
+        .order_by(KnowledgeChunk.id.asc())\
+        .all()
+        
+    return render_template(
+        'knowledge_base/view.html',
+        document=document,
+        chunks=chunks,
+        title=f"{document.original_filename} - Document"
+    )
 
 @kb_bp.route('/search')
 @login_required
@@ -169,3 +188,36 @@ def delete_document():
         current_app.logger.error(f"Error deleting document {document_id}: {e}")
         flash('Error deleting document.', 'danger')
         return redirect(url_for('kb_bp.index'))
+
+@kb_bp.route('/chunks/<int:chunk_id>/delete', methods=['POST'])
+@login_required
+def delete_chunk(chunk_id):
+    chunk = KnowledgeChunk.query.get_or_404(chunk_id)
+    
+    # Verify ownership via parent document
+    if not chunk.document or chunk.document.portal_user_id != current_user.id:
+        flash('Unauthorized access to chunk.', 'danger')
+        return redirect(url_for('kb_bp.manage_knowledge_base'))
+    
+    document_id = chunk.document_id
+    
+    try:
+        # Get KB manager
+        kb_manager = KnowledgeBaseManager(current_user.id)
+        
+        # Delete chunk from FAISS index if it exists
+        if hasattr(chunk, 'faiss_index_id') and chunk.faiss_index_id is not None:
+            kb_manager.remove_chunk_from_index(chunk.faiss_index_id)
+        
+        # Delete from database
+        db.session.delete(chunk)
+        db.session.commit()
+        
+        flash('Chunk deleted successfully!', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error deleting chunk {chunk_id}: {e}", exc_info=True)
+        flash('Error deleting chunk.', 'danger')
+    
+    return redirect(url_for('kb_bp.view_document', document_id=document_id))
