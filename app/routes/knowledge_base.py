@@ -144,10 +144,11 @@ def view_chunk(chunk_id):
         return {'error': 'Unauthorized access to chunk.'}, 403
     return {
         'id': chunk.id,
-        'content': chunk.content,
+        'content': chunk.chunk_text,  # Updated from content to chunk_text
         'document_id': chunk.document_id,
         'title': chunk.document.original_filename if chunk.document else None,
-        'faiss_index_id': chunk.faiss_index_id if hasattr(chunk, 'faiss_index_id') else None
+        'faiss_index_id': chunk.faiss_index_id if hasattr(chunk, 'faiss_index_id') else None,
+        'created_at': chunk.created_at.isoformat() if chunk.created_at else None
     }
 
 @kb_bp.route('/search')
