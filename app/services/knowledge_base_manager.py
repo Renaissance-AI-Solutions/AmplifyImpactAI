@@ -83,7 +83,7 @@ class KnowledgeBaseManager:
             chunk_size=current_app.config.get('KB_CHUNK_SIZE_TOKENS', 256),
             chunk_overlap=current_app.config.get('KB_CHUNK_OVERLAP_TOKENS', 32)
         )
-        self.text_extraction_service = TextExtractionService()
+
 
         if self.index is None:
             logger.error(f"KBM for user {portal_user_id} initialized, but FAISS index is None. Check startup logs.")
@@ -126,7 +126,8 @@ class KnowledgeBaseManager:
                 db.session.commit()
                 return False, "File not found."
 
-            text_content = self.text_extraction_service.extract_text(file_path, file_type)
+            print(f"--- DEBUG KBM: Calling TextExtractionService for doc: {doc.filename}, type: {doc.file_type} ---")
+            text_content = TextExtractionService.extract_text_from_file(doc.filename, doc.file_type)
 
             if not text_content:
                 logger.warning(f"No text extracted from document {document_id} ({saved_filename}).")
