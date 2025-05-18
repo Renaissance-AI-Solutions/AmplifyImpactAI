@@ -26,7 +26,8 @@ login_manager.login_message_category = 'info'
 
 def create_app(config_name=None):
     from app.services.scheduler_service import SchedulerService
-    from app.services.knowledge_base_manager import initialize_kb_components
+    from app.services.embedding_service import initialize_embedding_service
+    from app.services.knowledge_base_manager import initialize_kb_components, save_kb_components
     import atexit
     scheduler_service = SchedulerService()
     if config_name is None:
@@ -51,12 +52,13 @@ def create_app(config_name=None):
     # Initialize limiter with app
     limiter.init_app(app)
 
-    # Initialize Knowledge Base components
+    # Initialize EmbeddingService first, then Knowledge Base components
     with app.app_context():
-        initialize_kb_components(app)
-    # Optionally register save_kb_components if available
-    # from app.services.knowledge_base_manager import save_kb_components
-    # atexit.register(save_kb_components)
+        initialize_embedding_service(app) # Initialize embedding service using app.config
+        initialize_kb_components(app) # Initialize KB components (FAISS) which now uses the embedding_service
+    
+    # Register save_kb_components to be called on application exit
+    atexit.register(save_kb_components)
 
     # Only initialize scheduler if enabled
     if app.config.get('SCHEDULER_API_ENABLED', True):
