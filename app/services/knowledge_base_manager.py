@@ -6,7 +6,7 @@ from werkzeug.utils import secure_filename
 from app import db
 from app.models import KnowledgeDocument, KnowledgeChunk
 from app.services.text_extraction import TextExtractionService
-from app.utils.chunking import TokenTextSplitter
+from langchain_text_splitters import SentenceTransformersTokenTextSplitter
 from .embedding_service import embedding_service_instance
 
 logger = logging.getLogger(__name__)
@@ -79,10 +79,49 @@ class KnowledgeBaseManager:
         self.index = faiss_index
         self.id_map = faiss_id_to_chunk_pk_map
 
-        self.text_splitter = TokenTextSplitter(
-            chunk_size=current_app.config.get('KB_CHUNK_SIZE_TOKENS', 256),
-            chunk_overlap=current_app.config.get('KB_CHUNK_OVERLAP_TOKENS', 32)
-        )
+        # SentenceTransformersTokenTextSplitter will be used for accurate chunking
+        # No need to instantiate here; will instantiate per chunking call
+
+    def _chunk_text_by_tokens(self, text: str, 
+                              chunk_size_tokens: int = 0,
+                              chunk_overlap_tokens: int = 0
+                             ) -> list[str]:
+        """
+        Chunk text using SentenceTransformersTokenTextSplitter for accurate, model-aligned tokenization.
+        Uses the model name from the embedding service for tokenizer alignment.
+        """
+        if not text or not text.strip():
+            logger.warning("KBM: Attempted to chunk empty or whitespace-only text with SentenceTransformersTokenTextSplitter.")
+            return []
+        if not self.embedding_service or not getattr(self.embedding_service, "model_name", None):
+            logger.error("KBM: Embedding service or model_name not available for chunking.")
+            return []
+
+        # Use config defaults if not provided
+        effective_chunk_size = chunk_size_tokens or current_app.config.get('KB_CHUNK_SIZE_TOKENS', 256)
+        effective_chunk_overlap = chunk_overlap_tokens or current_app.config.get('KB_CHUNK_OVERLAP_TOKENS', 32)
+        st_model_name = self.embedding_service.model_name
+
+        print(f"--- DEBUG KBM: _chunk_text_by_tokens using ST model '{st_model_name}' ---")
+        print(f"--- DEBUG KBM: Target chunk size: {effective_chunk_size} tokens, overlap: {effective_chunk_overlap} tokens ---")
+        print(f"--- DEBUG KBM: Input text length for chunking: {len(text)} chars ---")
+
+        try:
+            text_splitter = SentenceTransformersTokenTextSplitter(
+                model_name=st_model_name,
+                chunk_size=effective_chunk_size,
+                chunk_overlap=effective_chunk_overlap
+            )
+            chunks = text_splitter.split_text(text)
+            logger.info(f"KBM SentenceTransformersTokenTextSplitter: Chunked text for model '{st_model_name}' into {len(chunks)} chunks.")
+            meaningful_chunks = [chunk for chunk in chunks if chunk.strip()]
+            if len(meaningful_chunks) < len(chunks):
+                logger.info(f"KBM Filtered out {len(chunks) - len(meaningful_chunks)} empty chunks after ST token splitting.")
+            print(f"--- DEBUG KBM: _chunk_text_by_tokens (ST) finished, num chunks: {len(meaningful_chunks)} ---")
+            return meaningful_chunks
+        except Exception as e:
+            logger.error(f"KBM Error during SentenceTransformer-based token splitting for model '{st_model_name}': {e}", exc_info=True)
+            return []
 
 
         if self.index is None:
