@@ -1,13 +1,60 @@
-{% extends "base.html" %}
+{% extends "layouts/base.html" %}
 
 {% block title %}Analytics - Amplify Impact Pro{% endblock %}
+{% block page_title %}Social Media Analytics{% endblock %}
 
 {% block extra_head %}
 <link href="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.css" rel="stylesheet">
+<style>
+    .stat-card {
+        transition: transform 0.3s;
+    }
+    .stat-card:hover {
+        transform: translateY(-5px);
+    }
+    .change-positive {
+        color: #28a745;
+    }
+    .change-negative {
+        color: #dc3545;
+    }
+    .change-neutral {
+        color: #6c757d;
+    }
+    .insight-card {
+        border-left: 4px solid #0d6efd;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
-<div class="row">
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm insight-card">
+                <div class="card-body">
+                    <h5><i class="bi bi-lightbulb me-2"></i>Insights</h5>
+                    <p class="mb-0">
+                        {% if stats.posts_change > 10 %}
+                            Your posting frequency has increased by <strong>{{ stats.posts_change }}%</strong> compared to the previous period. Consistent posting helps maintain audience engagement.
+                        {% elif stats.posts_change < -10 %}
+                            Your posting frequency has decreased by <strong>{{ stats.posts_change|abs }}%</strong>. Consider scheduling more content to maintain audience engagement.
+                        {% else %}
+                            Your posting frequency is consistent with the previous period.
+                        {% endif %}
+                        
+                        {% if stats.engagement_change > 0 %}
+                            Your engagement rate has improved by <strong>{{ stats.engagement_change }}%</strong>. Keep creating similar content to maintain this trend.
+                        {% elif stats.engagement_change < 0 %}
+                            Your engagement rate has decreased by <strong>{{ stats.engagement_change|abs }}%</strong>. Consider experimenting with different content types or posting times.
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
     <!-- Overview Cards -->
     <div class="col-12 mb-4">
         <div class="card">
@@ -17,38 +64,50 @@
             <div class="card-body">
                 <div class="row">
                     <div class="col-md-3">
-                        <div class="card bg-light">
+                        <div class="card bg-light stat-card">
                             <div class="card-body">
                                 <h6 class="card-title mb-0">Total Posts</h6>
                                 <h3 class="mb-0">{{ stats.total_posts }}</h3>
-                                <small class="text-muted">{{ stats.posts_change }}% change</small>
+                                <small class="{% if stats.posts_change > 0 %}change-positive{% elif stats.posts_change < 0 %}change-negative{% else %}change-neutral{% endif %}">
+                                    <i class="bi {% if stats.posts_change > 0 %}bi-arrow-up-right{% elif stats.posts_change < 0 %}bi-arrow-down-right{% else %}bi-dash{% endif %}"></i>
+                                    {{ stats.posts_change }}% change
+                                </small>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <div class="card bg-light">
+                        <div class="card bg-light stat-card">
                             <div class="card-body">
                                 <h6 class="card-title mb-0">Total Comments</h6>
                                 <h3 class="mb-0">{{ stats.total_comments }}</h3>
-                                <small class="text-muted">{{ stats.comments_change }}% change</small>
+                                <small class="{% if stats.comments_change > 0 %}change-positive{% elif stats.comments_change < 0 %}change-negative{% else %}change-neutral{% endif %}">
+                                    <i class="bi {% if stats.comments_change > 0 %}bi-arrow-up-right{% elif stats.comments_change < 0 %}bi-arrow-down-right{% else %}bi-dash{% endif %}"></i>
+                                    {{ stats.comments_change }}% change
+                                </small>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <div class="card bg-light">
+                        <div class="card bg-light stat-card">
                             <div class="card-body">
                                 <h6 class="card-title mb-0">Engagement Rate</h6>
                                 <h3 class="mb-0">{{ stats.engagement_rate }}%</h3>
-                                <small class="text-muted">{{ stats.engagement_change }}% change</small>
+                                <small class="{% if stats.engagement_change > 0 %}change-positive{% elif stats.engagement_change < 0 %}change-negative{% else %}change-neutral{% endif %}">
+                                    <i class="bi {% if stats.engagement_change > 0 %}bi-arrow-up-right{% elif stats.engagement_change < 0 %}bi-arrow-down-right{% else %}bi-dash{% endif %}"></i>
+                                    {{ stats.engagement_change }}% change
+                                </small>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <div class="card bg-light">
+                        <div class="card bg-light stat-card">
                             <div class="card-body">
-                                <h6 class="card-title mb-0">Average Post Length</h6>
-                                <h3 class="mb-0">{{ stats.avg_post_length }} words</h3>
-                                <small class="text-muted">{{ stats.length_change }}% change</small>
+                                <h6 class="card-title mb-0">Response Time</h6>
+                                <h3 class="mb-0">{{ stats.avg_response_time }} min</h3>
+                                <small class="{% if stats.response_time_change > 0 %}change-positive{% elif stats.response_time_change < 0 %}change-negative{% else %}change-neutral{% endif %}">
+                                    <i class="bi {% if stats.response_time_change > 0 %}bi-arrow-up-right{% elif stats.response_time_change < 0 %}bi-arrow-down-right{% else %}bi-dash{% endif %}"></i>
+                                    {{ stats.response_time_change }}% change
+                                </small>
                             </div>
                         </div>
                     </div>
@@ -168,7 +227,17 @@
                             <tr>
                                 <td>
                                     <div class="d-flex align-items-center">
-                                        <i class="fab fa-twitter text-primary me-2"></i>
+                                        {% if account.platform_name == 'X' %}
+                                            <i class="bi bi-twitter text-primary me-2"></i>
+                                        {% elif account.platform_name == 'LinkedIn' %}
+                                            <i class="bi bi-linkedin text-primary me-2"></i>
+                                        {% elif account.platform_name == 'Facebook' %}
+                                            <i class="bi bi-facebook text-primary me-2"></i>
+                                        {% elif account.platform_name == 'Instagram' %}
+                                            <i class="bi bi-instagram text-danger me-2"></i>
+                                        {% else %}
+                                            <i class="bi bi-globe text-secondary me-2"></i>
+                                        {% endif %}
                                         <div>
                                             <h6 class="mb-0">{{ account.account_display_name }}</h6>
                                             <small class="text-muted">{{ account.account_id_on_platform }}</small>
@@ -186,14 +255,20 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <span class="badge bg-primary">
+                                    <span class="badge {% if account.engagement_rate > 5 %}bg-success{% elif account.engagement_rate > 2 %}bg-primary{% else %}bg-secondary{% endif %}">
                                         {{ account.engagement_rate }}%
                                     </span>
                                 </td>
                                 <td>
-                                    <span class="badge bg-warning">
-                                        {{ account.avg_response_time }} minutes
+                                    <span class="badge {% if account.avg_response_time < 10 %}bg-success{% elif account.avg_response_time < 30 %}bg-warning{% else %}bg-danger{% endif %}">
+                                        {{ account.avg_response_time }} min
                                     </span>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center py-3">
+                                    <p class="text-muted mb-0">No account data available yet. Connect social media accounts to see performance metrics.</p>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -206,7 +281,8 @@
 </div>
 {% endblock %}
 
-{% block extra_js %}
+{% block scripts %}
+{{ super() }}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 <script>
     // Post Volume Chart
@@ -219,14 +295,28 @@
                 label: 'Posts',
                 data: {{ post_volume_data.values|tojson }},
                 borderColor: 'rgb(75, 192, 192)',
-                tension: 0.1
+                backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                tension: 0.1,
+                fill: true
             }]
         },
         options: {
             responsive: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                }
+            },
             scales: {
                 y: {
-                    beginAtZero: true
+                    beginAtZero: true,
+                    ticks: {
+                        precision: 0
+                    }
                 }
             }
         }
@@ -235,20 +325,40 @@
     // Comment Distribution Chart
     var ctx2 = document.getElementById('commentDistributionChart').getContext('2d');
     new Chart(ctx2, {
-        type: 'pie',
+        type: 'doughnut',
         data: {
             labels: {{ comment_distribution_data.labels|tojson }},
             datasets: [{
                 data: {{ comment_distribution_data.values|tojson }},
                 backgroundColor: [
-                    'rgb(255, 99, 132)',
-                    'rgb(54, 162, 235)',
-                    'rgb(255, 205, 86)'
-                ]
+                    'rgba(54, 162, 235, 0.8)',  // Blue - Posted
+                    'rgba(255, 206, 86, 0.8)',  // Yellow - Pending
+                    'rgba(75, 192, 192, 0.8)',  // Green - Approved
+                    'rgba(255, 99, 132, 0.8)',  // Red - Failed
+                    'rgba(153, 102, 255, 0.8)'  // Purple - Other
+                ],
+                borderWidth: 1
             }]
         },
         options: {
-            responsive: true
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'right',
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            var label = context.label || '';
+                            var value = context.raw || 0;
+                            var total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            var percentage = Math.round((value / total) * 100);
+                            return label + ': ' + value + ' (' + percentage + '%)';
+                        }
+                    }
+                }
+            },
+            cutout: '60%'
         }
     });
 

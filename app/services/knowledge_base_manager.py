@@ -112,9 +112,29 @@ class KnowledgeBaseManager:
         
         # Check if embedding service instance exists through the module
         if es_module.embedding_service_instance is None:
-            error_msg = "KBM Instantiation: Global 'embedding_service_instance' is None! Check app startup logs for errors in 'initialize_embedding_service'."
-            logger.critical(error_msg)
-            raise RuntimeError("EmbeddingService (embedding_service_instance) not available for KnowledgeBaseManager.")
+            logger.error("EmbeddingService not initialized. Cannot initialize KnowledgeBaseManager.")
+            self.embedding_service = None
+            self.text_splitter = None
+            self.index = None
+            self.id_map = {}
+            return
+            
+        try:
+            # Import NLTK for keyphrase extraction
+            import nltk
+            nltk_data_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'nltk_data')
+            if not os.path.exists(nltk_data_path):
+                os.makedirs(nltk_data_path)
+            nltk.data.path.append(nltk_data_path)
+            # Download required NLTK resources if not already downloaded
+            for resource in ['punkt', 'stopwords', 'averaged_perceptron_tagger']:
+                try:
+                    nltk.data.find(f'tokenizers/{resource}' if resource == 'punkt' else f'corpora/{resource}')
+                except LookupError:
+                    nltk.download(resource, download_dir=nltk_data_path)
+        except Exception as e:
+            logger.warning(f"Could not initialize NLTK for keyphrase extraction: {e}")
+            pass
         
         # Check if embedding service client is initialized
         if not hasattr(es_module.embedding_service_instance, 'client') or es_module.embedding_service_instance.client is None:
@@ -195,6 +215,82 @@ class KnowledgeBaseManager:
         except Exception as e:
             logger.error(f"Error clearing existing embeddings: {e}", exc_info=True)
             return False
+
+    def extract_keyphrases(self, text: str, max_phrases: int = 15) -> list:
+        """
+        Extract important keyphrases from text using NLTK.
+        
+        Args:
+            text: The text to extract keyphrases from
+            max_phrases: Maximum number of keyphrases to return
+            
+        Returns:
+            List of keyphrases
+        """
+        try:
+            import nltk
+            from nltk.corpus import stopwords
+            from nltk.tokenize import word_tokenize, sent_tokenize
+            from string import punctuation
+            from collections import Counter
+            
+            # Ensure stopwords are available
+            try:
+                stop_words = set(stopwords.words('english'))
+            except LookupError:
+                nltk.download('stopwords')
+                stop_words = set(stopwords.words('english'))
+            
+            # Custom stopwords for documents
+            custom_stopwords = {'also', 'using', 'used', 'one', 'two', 'use', 'may', 'page', 
+                             'table', 'figure', 'section', 'example', 'can', 'could', 'would'}
+            stop_words.update(custom_stopwords)
+            
+            # Tokenize and process text
+            sentences = sent_tokenize(text)
+            word_tokens = [word_tokenize(sentence) for sentence in sentences]
+            
+            # Part of speech tagging
+            tagged_sentences = [nltk.pos_tag(tokens) for tokens in word_tokens]
+            
+            # Extract noun phrases (NP) and filter by pos tags
+            keyphrases = []
+            for sentence in tagged_sentences:
+                i = 0
+                while i < len(sentence):
+                    # Check for noun phrases (NP, NN, NNS, NNP, NNPS)
+                    if sentence[i][1].startswith('NN'):
+                        phrase = [sentence[i][0]]
+                        j = i + 1
+                        # Add adjacent nouns, adjectives to form phrases
+                        while j < len(sentence) and (sentence[j][1].startswith('NN') or sentence[j][1].startswith('JJ')):
+                            phrase.append(sentence[j][0])
+                            j += 1
+                        i = j
+                        # Filter phrases
+                        if len(phrase) > 1:
+                            joined_phrase = ' '.join(phrase).lower()
+                            if not all(word in stop_words for word in phrase) and len(joined_phrase) > 3:
+                                keyphrases.append(joined_phrase)
+                        elif phrase[0].lower() not in stop_words and len(phrase[0]) > 3:
+                            keyphrases.append(phrase[0].lower())
+                    else:
+                        i += 1
+            
+            # Count phrase occurrences
+            phrase_counter = Counter(keyphrases)
+            
+            # Return top phrases, excluding any that are just numbers
+            top_phrases = [
+                phrase for phrase, _ in phrase_counter.most_common(max_phrases*2) 
+                if not phrase.replace('.', '').isdigit() and not all(c in punctuation for c in phrase)
+            ]
+            
+            return list(dict.fromkeys(top_phrases))[:max_phrases]  # Remove duplicates and limit number
+            
+        except Exception as e:
+            logger.warning(f"Error extracting keyphrases: {e}")
+            return []
 
     def _chunk_text_by_tokens(self, text: str, 
                               chunk_size_tokens: int = 0,
@@ -393,15 +489,30 @@ class KnowledgeBaseManager:
                 db.session.commit()
                 return False, f"Error adding to FAISS index: {str(e)}"
 
+            # Extract keyphrases from the document text
+            try:
+                logger.info(f"Extracting keyphrases for document {document_id}")
+                keyphrases = self.extract_keyphrases(text_content)
+                logger.info(f"Extracted {len(keyphrases)} keyphrases for document {document_id}")
+            except Exception as e:
+                logger.warning(f"Error extracting keyphrases for document {document_id}: {e}")
+                keyphrases = []
+            
+            # Generate a brief summary (first ~500 chars of the document)
+            summary = text_content[:500] + "..." if len(text_content) > 500 else text_content
+            
+            # Update document with processing results
             doc.status = "processed"
             doc.chunk_count = len(valid_chunks_text)
             doc.processed_at = datetime.utcnow()
             doc.embedding_model_name = self.embedding_service.model_name
+            doc.keyphrases = keyphrases
+            doc.summary = summary
             db.session.commit()
             
             save_kb_components() 
-            logger.info(f"Document {document_id} processed successfully with {len(valid_chunks_text)} chunks. FAISS total: {self.index.ntotal}")
-            return True, f"Document processed with {len(valid_chunks_text)} chunks using {self.embedding_service.model_name}."
+            logger.info(f"Document {document_id} processed successfully with {len(valid_chunks_text)} chunks and {len(keyphrases)} keyphrases. FAISS total: {self.index.ntotal}")
+            return True, f"Document processed with {len(valid_chunks_text)} chunks and {len(keyphrases)} keyphrases using {self.embedding_service.model_name}."
 
         except Exception as e:
             db.session.rollback()

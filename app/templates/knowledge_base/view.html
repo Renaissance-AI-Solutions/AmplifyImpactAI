@@ -27,9 +27,15 @@
                         <p class="text-muted">{{ document.chunks.count() }}</p>
                         
                         <h6>Keyphrases</h6>
-                        <div class="badge bg-info me-1" style="font-size: 0.875rem;">
-                            {{ document.keyphrases|length }}
-                        </div>
+                        {% if document.keyphrases and document.keyphrases|length > 0 %}
+                            <div class="d-flex flex-wrap gap-1 mb-2">
+                                {% for phrase in document.keyphrases %}
+                                    <span class="badge bg-info me-1" style="font-size: 0.875rem;">{{ phrase }}</span>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <p class="text-muted">No keyphrases extracted</p>
+                        {% endif %}
                         
                         <h6>Summary</h6>
                         <p class="text-muted">{{ document.summary if document.summary else 'Not available' }}</p>
@@ -160,7 +166,7 @@
             url: '/knowledge-base/chunks/search',
             method: 'POST',
             data: {
-                document_id: {{ document.id }},
+                document_id: "{{ document.id }}",
                 query: query
             },
             success: function(response) {

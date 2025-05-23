@@ -73,6 +73,10 @@ class KnowledgeDocument(db.Model):
     status = db.Column(db.String(50), default="uploaded")
     processed_at = db.Column(db.DateTime)
     uploaded_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    keyphrases = db.Column(db.JSON, default=list)  # Store keyphrases as JSON array
+    summary = db.Column(db.Text, nullable=True)  # Add summary field for document summary
+    embedding_model_name = db.Column(db.String(100), nullable=True)  # Track which model generated the embeddings
+    chunk_count = db.Column(db.Integer, default=0)  # Track number of chunks
     
     portal_user = db.relationship('PortalUser', backref=db.backref('knowledge_documents', lazy=True))
     chunks = db.relationship('KnowledgeChunk', backref='document', lazy='dynamic', cascade="all, delete-orphan")
@@ -84,8 +88,11 @@ class KnowledgeChunk(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     document_id = db.Column(db.Integer, db.ForeignKey('knowledge_document.id'), nullable=False)
     chunk_text = db.Column(db.Text, nullable=False)
-    faiss_index_id = db.Column(db.Integer, index=True, nullable=True) 
+    faiss_index_id = db.Column(db.Integer, index=True, nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    portal_user_id = db.Column(db.Integer, db.ForeignKey('portal_user.id'), nullable=True)
+    embedding_model_name = db.Column(db.String(100), nullable=True)
+    embedding_vector = db.Column(db.LargeBinary, nullable=True)  # Stored for potential future use
 
     def __repr__(self):
         return f'<KnowledgeChunk {self.id} for Doc {self.document_id}>'
@@ -102,6 +109,10 @@ class ScheduledPost(db.Model):
     posted_at = db.Column(db.DateTime, nullable=True)
     error_message = db.Column(db.Text, nullable=True)
     platform_post_id = db.Column(db.String(255), nullable=True)
+    
+    # Fields for recurring posts
+    is_from_recurring_schedule = db.Column(db.Boolean, default=False)
+    recurring_schedule_id = db.Column(db.Integer, db.ForeignKey('recurring_post_schedule.id'), nullable=True)
 
     owner = db.relationship('PortalUser', backref=db.backref('owned_scheduled_posts', lazy='dynamic'))
 
@@ -154,3 +165,43 @@ class CommentAutomationSetting(db.Model):
 
     portal_user = db.relationship('PortalUser', backref=db.backref('comment_automation_settings', lazy=True, uselist=False))
     default_posting_account = db.relationship('ManagedAccount', foreign_keys=[default_posting_managed_account_id])
+
+class ApiKey(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    portal_user_id = db.Column(db.Integer, db.ForeignKey('portal_user.id'), nullable=False, unique=True)
+    openai_api_key = db.Column(db.String(256), nullable=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    
+    portal_user = db.relationship('PortalUser', backref=db.backref('api_keys', lazy=True, uselist=False))
+    
+    def __repr__(self):
+        return f'<ApiKey for user {self.portal_user_id}>'
+
+class RecurringPostSchedule(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    portal_user_id = db.Column(db.Integer, db.ForeignKey('portal_user.id'), nullable=False)
+    managed_account_id = db.Column(db.Integer, db.ForeignKey('managed_account.id'), nullable=False)
+    name = db.Column(db.String(255), nullable=False)
+    content_template = db.Column(db.Text, nullable=False)
+    media_urls = db.Column(db.String(1024), nullable=True)
+    
+    # Scheduling information
+    frequency = db.Column(db.String(50), nullable=False)  # 'daily', 'weekly', 'monthly'
+    time_of_day = db.Column(db.Time, nullable=False)  # Time of day to post
+    day_of_week = db.Column(db.Integer, nullable=True)  # 0-6 (Monday-Sunday) for weekly posts
+    day_of_month = db.Column(db.Integer, nullable=True)  # 1-31 for monthly posts
+    
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    last_run_at = db.Column(db.DateTime, nullable=True)
+    
+    portal_user = db.relationship('PortalUser', backref=db.backref('recurring_post_schedules', lazy=True))
+    managed_account = db.relationship('ManagedAccount', backref=db.backref('recurring_post_schedules', lazy=True))
+    scheduled_posts = db.relationship('ScheduledPost', backref='recurring_schedule', lazy='dynamic', 
+                                    primaryjoin="and_(ScheduledPost.recurring_schedule_id==RecurringPostSchedule.id, "
+                                                "ScheduledPost.is_from_recurring_schedule==True)")
+    
+    def __repr__(self):
+        return f'<RecurringPostSchedule {self.name} ({self.frequency}) for account {self.managed_account_id}>'

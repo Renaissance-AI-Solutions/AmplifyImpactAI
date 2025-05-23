@@ -1,0 +1,172 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Account Settings{% endblock %}
+{% block page_title %}Account Settings{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <!-- Settings Navigation -->
+        <div class="col-md-3">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Settings</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    <a class="list-group-item list-group-item-action active" data-bs-toggle="pill" href="#api-keys">
+                        <i class="bi bi-key-fill me-2"></i> API Keys
+                    </a>
+                    <a class="list-group-item list-group-item-action" data-bs-toggle="pill" href="#comment-settings">
+                        <i class="bi bi-chat-left-text-fill me-2"></i> Comment Settings
+                    </a>
+                    <a class="list-group-item list-group-item-action" data-bs-toggle="pill" href="#notifications">
+                        <i class="bi bi-bell-fill me-2"></i> Notifications
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Content -->
+        <div class="col-md-9">
+            <div class="tab-content">
+                <!-- API Keys -->
+                <div class="tab-pane fade show active" id="api-keys">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-white">
+                            <h5 class="mb-0">API Keys</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted mb-4">
+                                Add your API keys to enable advanced features like AI-powered content generation.
+                                Your keys are securely stored and never shared with third parties.
+                            </p>
+
+                            <form method="POST" action="{{ url_for('main_bp.settings') }}">
+                                {{ api_key_form.hidden_tag() }}
+                                
+                                <div class="mb-3">
+                                    <label for="openai_api_key" class="form-label">
+                                        {{ api_key_form.openai_api_key.label }}
+                                        <i class="bi bi-info-circle text-muted" data-bs-toggle="tooltip" 
+                                           title="Required for AI content generation. Get your key from OpenAI."></i>
+                                    </label>
+                                    {{ api_key_form.openai_api_key(class="form-control", id="openai_api_key") }}
+                                    <div class="form-text">
+                                        Your API key is stored securely. Leave blank to keep your current key.
+                                    </div>
+                                    {% if api_key_form.openai_api_key.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in api_key_form.openai_api_key.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="d-grid">
+                                    {{ api_key_form.submit(class="btn btn-primary") }}
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Comment Settings -->
+                <div class="tab-pane fade" id="comment-settings">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-white">
+                            <h5 class="mb-0">Comment Automation Settings</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted mb-4">
+                                Configure how Amplify Impact Pro discovers and suggests comments 
+                                for relevant social media posts.
+                            </p>
+
+                            <form method="POST" action="{{ url_for('main_bp.settings') }}">
+                                {{ comment_settings_form.hidden_tag() }}
+                                
+                                <div class="mb-3">
+                                    <label for="keywords" class="form-label">
+                                        {{ comment_settings_form.keywords.label }}
+                                    </label>
+                                    {{ comment_settings_form.keywords(class="form-control", id="keywords", rows=3) }}
+                                    <div class="form-text">
+                                        Comma-separated list of keywords or hashtags to monitor
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="monitored_x_accounts" class="form-label">
+                                        {{ comment_settings_form.monitored_x_accounts.label }}
+                                    </label>
+                                    {{ comment_settings_form.monitored_x_accounts(class="form-control", id="monitored_x_accounts", rows=3) }}
+                                    <div class="form-text">
+                                        Comma-separated list of X accounts to monitor (without the @ symbol)
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="default_posting_account_id" class="form-label">
+                                        {{ comment_settings_form.default_posting_account_id.label }}
+                                    </label>
+                                    {{ comment_settings_form.default_posting_account_id(class="form-select", id="default_posting_account_id") }}
+                                </div>
+                                
+                                <div class="mb-3 form-check form-switch">
+                                    {{ comment_settings_form.is_active(class="form-check-input", id="is_active") }}
+                                    <label class="form-check-label" for="is_active">
+                                        {{ comment_settings_form.is_active.label }}
+                                    </label>
+                                </div>
+                                
+                                <div class="d-grid">
+                                    {{ comment_settings_form.submit(class="btn btn-primary") }}
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notifications -->
+                <div class="tab-pane fade" id="notifications">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-white">
+                            <h5 class="mb-0">Notification Settings</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted">
+                                Notification settings will be available in a future update.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    // Initialize tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // Set active tab based on hash or default to API keys
+    $(document).ready(function() {
+        let hash = window.location.hash;
+        if (hash) {
+            $('.list-group-item[href="' + hash + '"]').tab('show');
+        }
+        
+        // Update URL hash when tab changes
+        $('.list-group-item').on('shown.bs.tab', function (e) {
+            window.location.hash = e.target.getAttribute('href');
+        });
+    });
+</script>
+{% endblock %}

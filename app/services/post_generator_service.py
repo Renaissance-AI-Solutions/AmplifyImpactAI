@@ -10,13 +10,13 @@ from flask import current_app
 from app import db
 from app.models import KnowledgeDocument, KnowledgeChunk, ScheduledPost
 from app.services.knowledge_base_manager import KnowledgeBaseManager
-# from app.services.content_generator import ContentGenerator  # Uncomment if you use an LLM service
+from app.services.content_generator import ContentGenerator, GenerationConfig
 
 logger = logging.getLogger(__name__)
 
 class PostGeneratorService:
     def __init__(self):
-        # self.llm_service = ContentGenerator()  # Uncomment if you use an LLM service
+        self.llm_service = ContentGenerator()
         self.vectorizer = TfidfVectorizer(
             max_features=1000,
             stop_words='english',
@@ -148,108 +148,202 @@ class PostGeneratorService:
             logger.error(f"Error generating post content: {e}")
             return ""
             
-    def generate_content(self, document_id: int, platform: str = 'twitter', tone: str = 'informative',
-                        style: str = 'concise', topic: Optional[str] = None, max_length: int = 280,
-                        include_hashtags: bool = True, include_emoji: bool = True) -> str:
+    def generate_content(
+        self, document_id: int, platform: str = 'twitter',
+        tone: str = 'informative', style: str = 'concise', topic: Optional[str] = None, max_length: int = 280,
+        include_hashtags: bool = True, include_emoji: bool = True, use_llm: bool = True, portal_user_id: Optional[int] = None
+    ) -> str:
         """Generate content optimized for a specific platform with enhanced customization.
         
         Args:
             document_id: ID of the knowledge document to use
             platform: Target platform (twitter, linkedin, facebook, instagram)
-            tone: Tone of the content (informative, friendly, formal, urgent, inspirational, humorous)
-            style: Style of the content (concise, detailed, question, story)
+            tone: Content tone (informative, friendly, formal, urgent, inspirational, humorous)
+            style: Content style (concise, detailed, question, story)
             topic: Optional specific topic to focus on
-            max_length: Maximum length of the content in characters
+            max_length: Maximum length for the content
             include_hashtags: Whether to include hashtags
             include_emoji: Whether to include emoji
+            use_llm: Whether to use LLM for content generation (if False, falls back to template)
+            portal_user_id: User ID for API key retrieval
             
         Returns:
-            Generated content string
+            Generated content as string
         """
         try:
-            # Validate inputs
-            if not document_id:
-                logger.error("Missing document_id for content generation")
-                return ""
-                
-            # Apply platform-specific limits if needed
-            platform_limit = self.platform_limits.get(platform, 280)
-            max_length = min(max_length, platform_limit)
-            
-            # Get document topics
+            # Extract topics from the document
             topics = self.extract_topics(document_id)
             if not topics:
                 logger.warning(f"No topics found for document {document_id}")
                 return ""
                 
-            # Select most relevant topic or filter by user-specified topic
-            selected_topic = None
+            # Select a relevant topic
             if topic:
-                # Try to find a topic that matches the user's request
+                # If a specific topic is requested, find the most relevant one
+                topic_scores = []
                 for t in topics:
-                    if any(term.lower() in topic.lower() for term in t['terms']):
-                        selected_topic = t
-                        break
-            
-            # If no matching topic found, use the highest-scoring one
-            if not selected_topic and topics:
+                    # Calculate similarity between requested topic and available topics
+                    terms = set(t['terms'])
+                    requested_terms = set(topic.lower().split())
+                    overlap = len(terms.intersection(requested_terms))
+                    topic_scores.append((t, overlap))
+                    
+                # Sort by overlap score
+                topic_scores.sort(key=lambda x: x[1], reverse=True)
+                selected_topic = topic_scores[0][0] if topic_scores else topics[0]
+            else:
+                # Otherwise use the highest-scoring topic
                 selected_topic = topics[0]
-                
-            if not selected_topic:
-                logger.warning("Could not select a relevant topic")
-                return ""
-                
-            # Map tone to template type
-            tone_to_template = {
-                'informative': 'informational',
-                'friendly': 'engagement',
-                'formal': 'educational',
-                'urgent': 'promotional',
-                'inspirational': 'promotional',
-                'humorous': 'engagement'
-            }
-            template_type = tone_to_template.get(tone, 'informational')
             
-            # Generate base content
-            content = self.generate_post_content(selected_topic, template_type)
-            if not content:
-                logger.warning("Failed to generate base content")
+            # If LLM is requested and available, use it for content generation
+            if use_llm and self.llm_service:
+                try:
+                    # Get document information
+                    document = db.session.get(KnowledgeDocument, document_id)
+                    doc_filename = document.filename if document else "Unknown document"
+                    
+                    # Extract key points from chunks
+                    key_points = []
+                    for chunk in selected_topic['chunks'][:3]:  # Use top 3 chunks
+                        # Limit chunk text to reasonable size
+                        chunk_text = chunk.chunk_text[:250] + "..." if len(chunk.chunk_text) > 250 else chunk.chunk_text
+                        key_points.append(chunk_text)
+                    
+                    # Create hashtags from key terms
+                    hashtags = [term.replace(' ', '') for term in selected_topic['terms'][:5]]
+                    
+                    # Prepare content context for LLM
+                    content_context = {
+                        "topic": topic or ' '.join(selected_topic['terms'][:3]),
+                        "key_points": key_points,
+                        "platform": platform,
+                        "tone": tone,
+                        "style": style,
+                        "max_length": max_length,
+                        "hashtags": hashtags if include_hashtags else [],
+                        "call_to_action": "Learn more on our website" if style != "question" else "Share your thoughts!"
+                    }
+                    
+                    # Call the LLM service
+                    llm_content = self.llm_service.generate_content(
+                        content_context=content_context,
+                        portal_user_id=portal_user_id or (current_user.id if hasattr(current_user, 'id') else None)
+                    )
+                    
+                    logger.info(f"Generated content using LLM for document {document_id}")
+                    return llm_content
+                    
+                except Exception as llm_error:
+                    logger.warning(f"LLM generation failed, falling back to template: {llm_error}")
+                    # Fall back to template-based generation
+            
+            # Template-based generation (fallback if LLM fails or not requested)
+            # Extract information from the topic
+            key_terms = selected_topic['terms']
+            chunks = selected_topic['chunks']
+            
+            # Select a template based on tone and style
+            templates = {
+                'informational': [
+                    "Did you know? {key_point}",
+                    "Here's an interesting fact about {topic}: {key_point}",
+                    "Learn more about {topic}: {key_point}"
+                ],
+                'promotional': [
+                    "Discover how {topic} can transform your approach! {key_point}",
+                    "Want to improve your understanding of {topic}? {key_point}",
+                    "Take your knowledge of {topic} to the next level. {key_point}"
+                ],
+                'educational': [
+                    "Understanding {topic}: {key_point}",
+                    "The essentials of {topic}: {key_point}",
+                    "A key insight about {topic}: {key_point}"
+                ],
+                'engagement': [
+                    "What do you think about this? {key_point} #LetUsKnow",
+                    "Have you experienced this? {key_point} Share your thoughts!",
+                    "We'd love your perspective on {topic}: {key_point}"
+                ]
+            }
+            
+            # Adjust content based on style
+            if style == 'question':
+                templates = {
+                    'informational': [
+                        "Did you know about {topic}? {key_point}",
+                        "Have you heard that {key_point}?",
+                        "Are you aware of how {topic} affects us? {key_point}"
+                    ],
+                    'promotional': [
+                        "Want to discover how {topic} can help? {key_point}",
+                        "Ready to transform your approach to {topic}? {key_point}",
+                        "Looking for better results with {topic}? {key_point}"
+                    ],
+                    'educational': [
+                        "Curious about {topic}? {key_point}",
+                        "Want to understand {topic} better? {key_point}",
+                        "How much do you know about {topic}? {key_point}"
+                    ],
+                    'engagement': [
+                        "What's your experience with {topic}? {key_point}",
+                        "How would you handle this? {key_point}",
+                        "Do you agree that {key_point}? Why or why not?"
+                    ]
+                }
+            elif style == 'story':
+                templates = {
+                    'informational': [
+                        "I recently learned about {topic} and was surprised to discover that {key_point}",
+                        "While researching {topic}, we uncovered something interesting: {key_point}",
+                        "The story of {topic} reveals an important truth: {key_point}"
+                    ],
+                    'promotional': [
+                        "A client's journey with {topic} led to amazing results: {key_point}",
+                        "We've been exploring {topic} and discovered that {key_point}",
+                        "Our team's experience with {topic} taught us that {key_point}"
+                    ],
+                    'educational': [
+                        "The evolution of {topic} teaches us that {key_point}",
+                        "History shows us something fascinating about {topic}: {key_point}",
+                        "When you study {topic}, you'll find that {key_point}"
+                    ],
+                    'engagement': [
+                        "Here's a story that might resonate: {key_point} What's yours?",
+                        "We've witnessed this happen with {topic}: {key_point} Have you?",
+                        "Someone recently told us about their experience with {topic}: {key_point} Share yours!"
+                    ]
+                }
+            
+            # Select tone type (default to informational if not found)
+            template_options = templates.get(tone, templates['informational'])
+            
+            # Select a template randomly
+            template = random.choice(template_options)
+            
+            # Get the most relevant chunk
+            chunk = chunks[0] if chunks else None
+            if not chunk:
                 return ""
                 
-            # Apply style modifications
-            if style == 'detailed':
-                # Add more details from the chunk
-                chunk = selected_topic['chunks'][0] if selected_topic['chunks'] else None
-                if chunk and len(content) + 100 <= max_length:
-                    additional_detail = chunk.chunk_text[200:300] if len(chunk.chunk_text) > 200 else ""
-                    if additional_detail:
-                        content += f" {additional_detail}..."
-            elif style == 'question':
-                # Convert to question format if not already
-                if not any(q in content for q in ['?', 'What', 'How', 'Why', 'When', 'Where', 'Who']):
-                    topic_terms = ' '.join(selected_topic['terms'][:2])
-                    question_starters = [
-                        f"What do you think about {topic_terms}?",
-                        f"Have you considered how {topic_terms} impacts your work?",
-                        f"Did you know about {topic_terms}?"
-                    ]
-                    content = f"{random.choice(question_starters)} {content}"
-            elif style == 'story':
-                # Add storytelling elements
-                story_intros = [
-                    "Here's a fascinating insight: ",
-                    "I recently discovered that ",
-                    "Let me share something interesting: "
-                ]
-                content = f"{random.choice(story_intros)}{content}"
-                
+            # Extract key information
+            topic_terms = ' '.join(key_terms[:2])
+            key_point = chunk.chunk_text[:200] + "..." if len(chunk.chunk_text) > 200 else chunk.chunk_text
+            
+            # Format content
+            content = template.format(topic=topic_terms, key_point=key_point)
+            
             # Add hashtags if requested
             if include_hashtags:
-                hashtags = [f"#{term.replace(' ', '')}" for term in selected_topic['terms'][:2]]
-                hashtag_text = ' '.join(hashtags)
-                if len(content) + len(hashtag_text) + 1 <= max_length:
-                    content += f"\n{hashtag_text}"
-                    
+                # Create hashtags from key terms
+                hashtags = [f"#{term.replace(' ', '')}" for term in key_terms[:2]]
+                platform_tag = f"#{platform.capitalize()}" if platform in ['twitter', 'linkedin', 'facebook', 'instagram'] else ""
+                
+                # Add hashtags based on platform limit
+                if platform == 'twitter' and len(content) + len(' '.join(hashtags)) + 1 <= max_length:
+                    content += "\n" + ' '.join(hashtags)
+                elif platform in ['linkedin', 'facebook', 'instagram'] and len(content) + len(' '.join(hashtags + [platform_tag])) + 1 <= max_length:
+                    content += "\n" + ' '.join(hashtags + ([platform_tag] if platform_tag else []))
+            
             # Add emoji if requested
             if include_emoji:
                 # Map topics to relevant emoji

@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Edit' if is_edit else 'New' }} Recurring Post Schedule{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h1 class="h3 mb-0">{{ 'Edit' if is_edit else 'Create' }} Recurring Post Schedule</h1>
+                </div>
+                <div class="card-body">
+                    <form method="POST" class="needs-validation" novalidate>
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="mb-3">
+                            {{ form.name.label(class="form-label") }}
+                            {{ form.name(class="form-control") }}
+                            {% if form.name.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.name.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">Give your schedule a descriptive name (e.g., "Daily Tips", "Weekly Updates")</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.target_account_id.label(class="form-label") }}
+                            {{ form.target_account_id(class="form-select") }}
+                            {% if form.target_account_id.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.target_account_id.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.content_template.label(class="form-label") }}
+                            {{ form.content_template(class="form-control", rows=4) }}
+                            {% if form.content_template.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.content_template.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">
+                                This is the template for your recurring posts. You can include placeholders like {date}, {day}, etc.
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                {{ form.frequency.label(class="form-label") }}
+                                {{ form.frequency(class="form-select") }}
+                                {% if form.frequency.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.frequency.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                {{ form.time_of_day.label(class="form-label") }}
+                                {{ form.time_of_day(class="form-control") }}
+                                {% if form.time_of_day.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.time_of_day.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                                <div class="form-text">Time in UTC</div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6 weekly-options">
+                                {{ form.day_of_week.label(class="form-label") }}
+                                {{ form.day_of_week(class="form-select") }}
+                                {% if form.day_of_week.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.day_of_week.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 monthly-options">
+                                {{ form.day_of_month.label(class="form-label") }}
+                                {{ form.day_of_month(class="form-select") }}
+                                {% if form.day_of_month.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.day_of_month.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            {{ form.is_active(class="form-check-input") }}
+                            {{ form.is_active.label(class="form-check-label") }}
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('main_bp.recurring_posts') }}" class="btn btn-outline-secondary">Cancel</a>
+                            {{ form.submit(class="btn btn-primary") }}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const frequencySelect = document.getElementById('frequency');
+        const weeklyOptions = document.querySelector('.weekly-options');
+        const monthlyOptions = document.querySelector('.monthly-options');
+        
+        function updateFrequencyOptions() {
+            const frequency = frequencySelect.value;
+            
+            // Hide all frequency-specific options
+            weeklyOptions.style.display = 'none';
+            monthlyOptions.style.display = 'none';
+            
+            // Show options based on selected frequency
+            if (frequency === 'weekly') {
+                weeklyOptions.style.display = 'block';
+            } else if (frequency === 'monthly') {
+                monthlyOptions.style.display = 'block';
+            }
+        }
+        
+        // Initial setup
+        updateFrequencyOptions();
+        
+        // Update when frequency changes
+        frequencySelect.addEventListener('change', updateFrequencyOptions);
+    });
+</script>
+{% endblock %}

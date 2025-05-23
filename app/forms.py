@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed, FileRequired
-from wtforms import StringField, PasswordField, BooleanField, SubmitField, TextAreaField, SelectField, DateTimeLocalField, IntegerField
+from wtforms import StringField, PasswordField, BooleanField, SubmitField, TextAreaField, SelectField, DateTimeLocalField, IntegerField, TimeField
 from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional, ValidationError, NumberRange
 from app import db 
 from app.models import PortalUser, ManagedAccount, KnowledgeDocument
@@ -103,6 +103,36 @@ def get_document_choices(portal_user_id, add_blank=True):
         choices.insert(0, ('', '--- Select a Document ---'))
     
     return choices
+
+
+class RecurringPostScheduleForm(FlaskForm):
+    """Form for creating and editing recurring post schedules."""
+    name = StringField('Schedule Name', validators=[DataRequired(), Length(max=255)])
+    target_account_id = SelectField('Post to Account', coerce=int, validators=[DataRequired()])
+    content_template = TextAreaField('Post Content Template', validators=[DataRequired(), Length(max=280)])
+    
+    frequency = SelectField('Frequency', choices=[
+        ('daily', 'Daily'),
+        ('weekly', 'Weekly'),
+        ('monthly', 'Monthly')
+    ], validators=[DataRequired()])
+    
+    time_of_day = TimeField('Time of Day (UTC)', format='%H:%M', validators=[DataRequired()])
+    day_of_week = SelectField('Day of Week', choices=[
+        (0, 'Monday'),
+        (1, 'Tuesday'),
+        (2, 'Wednesday'),
+        (3, 'Thursday'),
+        (4, 'Friday'),
+        (5, 'Saturday'),
+        (6, 'Sunday')
+    ], coerce=int, validators=[Optional()])
+    day_of_month = SelectField('Day of Month', 
+                             choices=[(i, str(i)) for i in range(1, 32)],
+                             coerce=int, validators=[Optional()])
+    
+    is_active = BooleanField('Active', default=True)
+    submit = SubmitField('Save Schedule')
 
 
 class ContentGenerationForm(FlaskForm):

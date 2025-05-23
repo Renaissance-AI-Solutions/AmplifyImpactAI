@@ -24,3 +24,6 @@ APScheduler>=3.8
 
 cryptography>=3.4
 werkzeug>=2.0
+
+# For keyphrase extraction
+nltk>=3.8
