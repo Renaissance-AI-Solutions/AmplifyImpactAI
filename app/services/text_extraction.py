@@ -18,12 +18,18 @@ class TextExtractionService:
         print(f"--- DEBUG TES: Received saved_doc_filename: '{saved_doc_filename}' ---")
         print(f"--- DEBUG TES: Received file_type_arg: '{file_type_arg}' ---")
         
-        if not current_app.config.get('UPLOAD_FOLDER'):
-            logger.error("UPLOAD_FOLDER is not configured in the Flask app.")
-            return "" # Cannot proceed without upload folder
-
-        file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], saved_doc_filename)
-        print(f"--- DEBUG TES: Constructed file_path for extraction: '{file_path}' ---")
+        # Check if saved_doc_filename is already a full path
+        if os.path.isabs(saved_doc_filename):
+            file_path = saved_doc_filename
+            print(f"--- DEBUG TES: Using provided absolute file path: '{file_path}' ---")
+        else:
+            # If it's just a filename, construct the full path
+            if not current_app.config.get('UPLOAD_FOLDER'):
+                logger.error("UPLOAD_FOLDER is not configured in the Flask app.")
+                return "" # Cannot proceed without upload folder
+                
+            file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], saved_doc_filename)
+            print(f"--- DEBUG TES: Constructed file_path from filename: '{file_path}' ---")
         
         if not os.path.exists(file_path):
             logger.error(f"File not found for text extraction: {file_path}")

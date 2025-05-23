@@ -1,10 +1,28 @@
-from sentence_transformers import SentenceTransformer as STModel
-from typing import List, Union, Optional # Added Optional
-import numpy as np
+import os
+import sys
 import logging
-from flask import current_app # For config
+import traceback
+from typing import List, Union, Optional
+import numpy as np
+from flask import current_app
+from sentence_transformers import SentenceTransformer as STModel
+
+# Direct prints for critical startup debugging
+print("--- EMBEDDING_SERVICE_DEBUG: Module loading ---")
+print(f"--- Python executable: {sys.executable}")
+print(f"--- Current working directory: {os.getcwd()}")
+print(f"--- Python path: {sys.path}")
+
+try:
+    # Try to get the sentence-transformers version
+    from sentence_transformers import __version__ as st_version
+    print(f"--- sentence-transformers version: {st_version}")
+except Exception as e:
+    print(f"--- ERROR getting sentence-transformers version: {e}")
 
 logger = logging.getLogger(__name__)
+print(f"--- Logger name: {logger.name} (level: {logging.getLevelName(logger.level)})")
+print("--- EMBEDDING_SERVICE_DEBUG: Module imports complete ---")
 
 class EmbeddingService:
     def __init__(self, model_name: str = None, normalize: bool = True):
@@ -32,17 +50,40 @@ class EmbeddingService:
 
 
     def _initialize_client(self):
+        print(f"\n--- EMBEDDING_SERVICE_DEBUG: _initialize_client() called for model: {self.model_name} ---")
+        print(f"--- Current working directory: {os.getcwd()}")
+        print(f"--- Model name: {self.model_name}")
+        
         try:
-            logger.info(f"Initializing EmbeddingService with model: {self.model_name}")
+            print(f"--- Attempting to import SentenceTransformer...")
+            from sentence_transformers import __version__ as st_version
+            print(f"--- sentence-transformers version: {st_version}")
+            
+            print(f"--- Creating SentenceTransformer instance for '{self.model_name}'...")
             self.client = STModel(self.model_name)
+            print("--- SentenceTransformer instance created successfully!")
+            
+            print("--- Getting embedding dimension...")
             self._dimension = self.client.get_sentence_embedding_dimension()
+            print(f"--- Success! Model loaded with dimension: {self._dimension}")
+            
             logger.info(f"Embedding model '{self.model_name}' loaded. Dimension: {self._dimension}")
+            return True
+            
+        except ImportError as ie:
+            print(f"--- CRITICAL: Failed to import sentence_transformers: {ie}")
+            print("--- Please install it with: pip install -U sentence-transformers")
+            print(traceback.format_exc())
+            
         except Exception as e:
-            logger.error(f"Failed to initialize SentenceTransformer model '{self.model_name}': {e}", exc_info=True)
-            self.client = None
-            self._dimension = 0
-            # Consider raising an error here to halt app startup if embeddings are critical
-            # raise RuntimeError(f"Failed to load critical embedding model: {self.model_name}") from e
+            print(f"--- CRITICAL: Failed to initialize model '{self.model_name}': {str(e)}")
+            print("--- Full traceback:")
+            print(traceback.format_exc())
+            
+        # If we get here, initialization failed
+        self.client = None
+        self._dimension = 0
+        return False
 
     def get_embeddings(self, texts: Union[str, List[str]], input_type: str = "passage") -> List[List[float]]:
         if not self.client:
@@ -89,15 +130,64 @@ class EmbeddingService:
 # Global instance, initialized in app/__init__.py
 embedding_service_instance: Optional[EmbeddingService] = None
 
-def initialize_embedding_service(app): # Pass Flask app
+def initialize_embedding_service(app):
     global embedding_service_instance
-    if embedding_service_instance is None:
-        try:
-            embedding_service_instance = EmbeddingService(
-                model_name=app.config.get('KB_EMBEDDING_MODEL_NAME'),
-                normalize=app.config.get('KB_EMBEDDING_NORMALIZE', True)
-            )
-            logger.info("EmbeddingService initialized globally.")
-        except Exception as e:
-            logger.error(f"Failed to create global EmbeddingService instance: {e}", exc_info=True)
-            # App might still start, but KB functionality will be severely impacted.
+    
+    print("\n" + "="*80)
+    print("EMBEDDING_SERVICE_DEBUG: initialize_embedding_service() called")
+    print(f"Current working directory: {os.getcwd()}")
+    print(f"Module file: {__file__}")
+    print(f"Initial global embedding_service_instance: {id(embedding_service_instance) if embedding_service_instance is not None else 'None'}")
+    
+    if embedding_service_instance is not None:
+        print("--- Global instance already exists, skipping initialization")
+        print(f"--- Instance ID: {id(embedding_service_instance)}")
+        print(f"--- Client loaded: {embedding_service_instance.client is not None}")
+        return
+    
+    temp_instance = None
+    try:
+        model_name = app.config.get('KB_EMBEDDING_MODEL_NAME')
+        normalize = app.config.get('KB_EMBEDDING_NORMALIZE', True)
+        
+        print(f"\n--- Creating temporary EmbeddingService instance")
+        print(f"--- Model: {model_name}")
+        print(f"--- Normalize: {normalize}")
+        
+        # Create a temporary instance first
+        temp_instance = EmbeddingService(model_name=model_name, normalize=normalize)
+        
+        # Verify the client was initialized
+        if temp_instance.client is None:
+            print("\n!!! CRITICAL: Client failed to initialize in temporary instance")
+            print("!!! This suggests the model failed to load in _initialize_client()")
+            print(f"!!! Model: {model_name}")
+            return
+            
+        # If we got here, everything is good with the temp instance
+        print(f"\n--- Temporary instance created successfully")
+        print(f"--- Temp instance ID: {id(temp_instance)}")
+        print(f"--- Client loaded: {temp_instance.client is not None}")
+        
+        # Now assign to global
+        embedding_service_instance = temp_instance
+        print("\n--- Assigned temporary instance to global embedding_service_instance")
+        print(f"--- Global instance ID: {id(embedding_service_instance)}")
+        print(f"--- Global client valid: {embedding_service_instance.client is not None}")
+        
+    except Exception as e:
+        print(f"\n!!! CRITICAL: Exception during initialization: {str(e)}")
+        print("!!! Full traceback:")
+        traceback.print_exc()
+        if temp_instance:
+            embedding_service_instance = None
+        return
+    
+    # Final verification
+    if embedding_service_instance and embedding_service_instance.client:
+        print("\n--- EMBEDDING SERVICE INITIALIZATION SUCCESSFUL ---")
+        print(f"--- Final global instance ID: {id(embedding_service_instance)}")
+        print(f"--- Client dimension: {getattr(embedding_service_instance, '_dimension', 'N/A')}")
+    else:
+        print("\n!!! EMBEDDING SERVICE INITIALIZATION FAILED !!!")
+        print("!!! The global instance is either None or has no client !!!")

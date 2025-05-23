@@ -70,7 +70,7 @@ def manage_knowledge_base():
 
                 document = KnowledgeDocument(
                     portal_user_id=current_user.id,
-                    filename=filepath,
+                    filename=filename,  # Store just the filename, not the full path
                     original_filename=file.filename,
                     file_type=file.filename.rsplit('.', 1)[1].lower(),
                     uploaded_at=datetime.now(timezone.utc)
@@ -79,7 +79,7 @@ def manage_knowledge_base():
                 db.session.commit()
 
                 kbm = KnowledgeBaseManager(current_user.id)
-                if kbm.process_document(document):
+                if kbm.process_document(document.id, filepath, file.filename.rsplit('.', 1)[1].lower()):
                     flash('Document uploaded and processed successfully!', 'success')
                 else:
                     flash('Error processing document. Please check the logs.', 'danger')

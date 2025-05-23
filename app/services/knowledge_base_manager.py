@@ -1,13 +1,18 @@
 import os
 import logging
+import pickle
+from typing import Optional, List, Dict, Any, TYPE_CHECKING
+import faiss
+import numpy as np
+from datetime import datetime
 from flask import current_app, g
 from sqlalchemy.orm import joinedload
 from werkzeug.utils import secure_filename
 from app import db
 from app.models import KnowledgeDocument, KnowledgeChunk
 from app.services.text_extraction import TextExtractionService
-from langchain_text_splitters import SentenceTransformersTokenTextSplitter
-from .embedding_service import embedding_service_instance
+from langchain_text_splitters import SentenceTransformersTokenTextSplitter, RecursiveCharacterTextSplitter
+from . import embedding_service as es_module
 
 logger = logging.getLogger(__name__)
 
@@ -20,13 +25,39 @@ active_kb_model_name_for_faiss: str = ""
 def initialize_kb_components(app):
     global faiss_index, faiss_id_to_chunk_pk_map, faiss_index_path_global, faiss_map_path_global
     global active_kb_model_name_for_faiss
-
-    if embedding_service_instance is None or embedding_service_instance.client is None:
-        logger.error("EmbeddingService not initialized or its client failed. Cannot initialize FAISS for KB.")
+    
+    print("\n" + "="*80)
+    print("KNOWLEDGE_BASE_DEBUG: initialize_kb_components() called")
+    print(f"Current working directory: {os.getcwd()}")
+    print(f"Module file: {__file__}")
+    
+    # Get a reference to the embedding service module
+    print(f"--- Accessing embedding_service.embedding_service_instance through module")
+    
+    # Check the instance and its client through the module
+    if es_module.embedding_service_instance is None:
+        print("!!! CRITICAL: es_module.embedding_service_instance is None")
+        logger.error("EmbeddingService not initialized. Cannot initialize FAISS for KB.")
         return
+        
+    if not hasattr(es_module.embedding_service_instance, 'client'):
+        print("!!! CRITICAL: es_module.embedding_service_instance has no 'client' attribute")
+        logger.error("EmbeddingService client attribute missing. Cannot initialize FAISS for KB.")
+        return
+        
+    if es_module.embedding_service_instance.client is None:
+        print("!!! CRITICAL: es_module.embedding_service_instance.client is None")
+        logger.error("EmbeddingService client is None. Cannot initialize FAISS for KB.")
+        return
+    
+    print(f"--- EmbeddingService client is valid. Model: {getattr(es_module.embedding_service_instance, 'model_name', 'unknown')}")
+    print(f"--- Client dimension: {getattr(es_module.embedding_service_instance, '_dimension', 'unknown')}")
+    
+    # If we get here, the embedding service is properly initialized
+    print("--- Proceeding with FAISS index initialization...")
 
-    current_embedding_dimension = embedding_service_instance.get_embedding_dimension()
-    current_model_name = embedding_service_instance.model_name
+    current_embedding_dimension = es_module.embedding_service_instance.get_embedding_dimension()
+    current_model_name = es_module.embedding_service_instance.model_name
     
     if current_embedding_dimension == 0:
         logger.error(f"KB Embedding Provider '{current_model_name}' has dimension 0. FAISS cannot be initialized.")
@@ -55,9 +86,17 @@ def initialize_kb_components(app):
                 faiss_index = faiss.IndexFlatL2(current_embedding_dimension)
                 faiss_id_to_chunk_pk_map = {}
             else:
-                with open(faiss_map_path_global, "rb") as f:
-                    faiss_id_to_chunk_pk_map = pickle.load(f)
-                logger.info(f"FAISS index loaded with {faiss_index.ntotal} vectors. Map loaded with {len(faiss_id_to_chunk_pk_map)} entries.")
+                try:
+                    if os.path.getsize(faiss_map_path_global) > 0:
+                        with open(faiss_map_path_global, "rb") as f:
+                            faiss_id_to_chunk_pk_map = pickle.load(f)
+                        logger.info(f"FAISS index loaded with {faiss_index.ntotal} vectors. Map loaded with {len(faiss_id_to_chunk_pk_map)} entries.")
+                    else:
+                        logger.warning(f"FAISS map file {faiss_map_path_global} exists but is empty. Creating new map.")
+                        faiss_id_to_chunk_pk_map = {}
+                except (EOFError, pickle.UnpicklingError) as e:
+                    logger.warning(f"Error unpickling FAISS map file: {e}. Creating new map.")
+                    faiss_id_to_chunk_pk_map = {}
         except Exception as e:
             logger.error(f"Error loading FAISS index/map: {e}. Creating new ones.", exc_info=True)
             faiss_index = faiss.IndexFlatL2(current_embedding_dimension)
@@ -71,16 +110,91 @@ class KnowledgeBaseManager:
     def __init__(self, portal_user_id: int):
         self.portal_user_id = portal_user_id
         
-        if embedding_service_instance is None or embedding_service_instance.client is None:
-            logger.error("KBM Instantiation: Global EmbeddingService not properly initialized!")
-            raise RuntimeError("EmbeddingService not available for KnowledgeBaseManager.")
+        # Check if embedding service instance exists through the module
+        if es_module.embedding_service_instance is None:
+            error_msg = "KBM Instantiation: Global 'embedding_service_instance' is None! Check app startup logs for errors in 'initialize_embedding_service'."
+            logger.critical(error_msg)
+            raise RuntimeError("EmbeddingService (embedding_service_instance) not available for KnowledgeBaseManager.")
         
-        self.embedding_service = embedding_service_instance
+        # Check if embedding service client is initialized
+        if not hasattr(es_module.embedding_service_instance, 'client') or es_module.embedding_service_instance.client is None:
+            error_msg = f"KBM Instantiation for user {portal_user_id}: embedding_service_instance exists but its .client is None. The embedding model likely failed to load."
+            logger.critical(error_msg)
+            raise RuntimeError("EmbeddingService client not initialized. Check model loading in EmbeddingService._initialize_client.")
+        
+        # Store the reference to the embedding service instance
+        self.embedding_service = es_module.embedding_service_instance
         self.index = faiss_index
         self.id_map = faiss_id_to_chunk_pk_map
+        
+        # Initialize text splitter
+        try:
+            # Try to use SentenceTransformersTokenTextSplitter with the same model as the embedding service
+            self.text_splitter = SentenceTransformersTokenTextSplitter(
+                model_name=self.embedding_service.model_name,
+                chunk_size=512,
+                chunk_overlap=50
+            )
+            print(f"--- KBM DEBUG: Initialized SentenceTransformersTokenTextSplitter with model {self.embedding_service.model_name}")
+        except Exception as e:
+            # Fall back to RecursiveCharacterTextSplitter if SentenceTransformersTokenTextSplitter fails
+            logger.warning(f"Failed to initialize SentenceTransformersTokenTextSplitter: {e}. Falling back to RecursiveCharacterTextSplitter.")
+            self.text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=1000,
+                chunk_overlap=200,
+                length_function=len,
+            )
+            print("--- KBM DEBUG: Initialized RecursiveCharacterTextSplitter as fallback")
+        
+        print(f"--- KBM DEBUG: KnowledgeBaseManager initialized for user {portal_user_id}")
+
+        # Clear existing embeddings if the model has changed
+        if self.index is not None and self.index.ntotal > 0:
+            current_model = self.embedding_service.model_name if self.embedding_service else None
+            if current_model and current_model != active_kb_model_name_for_faiss:
+                logger.warning(f"Detected embedding model change from '{active_kb_model_name_for_faiss}' to '{current_model}'. Clearing existing embeddings.")
+                self._clear_existing_embeddings()
 
         # SentenceTransformersTokenTextSplitter will be used for accurate chunking
         # No need to instantiate here; will instantiate per chunking call
+
+    def _clear_existing_embeddings(self) -> None:
+        """
+        Clear all existing chunks from the database and reset the FAISS index.
+        This is necessary when the embedding model changes to prevent mixing different embedding spaces.
+        """
+        try:
+            logger.warning("Clearing all existing chunks and resetting FAISS index due to model change.")
+            
+            # Delete all chunks for this user from the database
+            deleted_chunks = KnowledgeChunk.query.filter_by(
+                portal_user_id=self.portal_user_id
+            ).delete(synchronize_session=False)
+            
+            # Reset FAISS index
+            if self.index is not None and self.index.ntotal > 0:
+                dimension = self.index.d
+                self.index.reset()
+                # Recreate the index with the same dimension
+                self.index = faiss.IndexFlatL2(dimension)
+                # Update the global reference
+                global faiss_index
+                faiss_index = self.index
+            
+            # Clear the ID map
+            self.id_map.clear()
+            global faiss_id_to_chunk_pk_map
+            faiss_id_to_chunk_pk_map = {}
+            
+            # Save the cleared state
+            save_kb_components()
+            
+            logger.warning(f"Cleared {deleted_chunks} chunks and reset FAISS index for model change.")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error clearing existing embeddings: {e}", exc_info=True)
+            return False
 
     def _chunk_text_by_tokens(self, text: str, 
                               chunk_size_tokens: int = 0,
@@ -143,11 +257,17 @@ class KnowledgeBaseManager:
 
 
     def process_document(self, document_id: int, saved_filename: str, file_type: str) -> tuple[bool, str]:
+        print(f"\n--- KBM DEBUG: process_document called with document_id={document_id}, saved_filename={saved_filename}, file_type={file_type}")
+        
         self._ensure_services_loaded()
         doc = db.session.get(KnowledgeDocument, document_id)
+        
         if not doc:
             logger.error(f"Document with ID {document_id} not found.")
             return False, "Document not found."
+            
+        print(f"--- KBM DEBUG: Document found: {doc.id}, filename={doc.filename}, original_filename={doc.original_filename}")
+        
         if doc.portal_user_id != self.portal_user_id:
             logger.error(f"User {self.portal_user_id} attempting to process document {document_id} belonging to user {doc.portal_user_id}")
             return False, "Access denied to document."
@@ -156,17 +276,19 @@ class KnowledgeBaseManager:
         db.session.commit()
 
         try:
-            upload_folder = current_app.config['UPLOAD_FOLDER']
-            file_path = os.path.join(upload_folder, saved_filename)
-
+            # saved_filename is expected to be the full path to the file
+            file_path = saved_filename
+            
             if not os.path.exists(file_path):
                 logger.error(f"File {file_path} not found for document {document_id}")
                 doc.status = "error_file_not_found"
                 db.session.commit()
                 return False, "File not found."
 
-            print(f"--- DEBUG KBM: Calling TextExtractionService for doc: {doc.filename}, type: {doc.file_type} ---")
-            text_content = TextExtractionService.extract_text_from_file(doc.filename, doc.file_type)
+            print(f"--- DEBUG KBM: Calling TextExtractionService for doc: {file_path}, type: {file_type} ---")
+            print(f"--- DEBUG KBM: File exists check: {os.path.exists(file_path)}, File size: {os.path.getsize(file_path) if os.path.exists(file_path) else 'N/A'} bytes")
+            text_content = TextExtractionService.extract_text_from_file(file_path, file_type)
+            print(f"--- DEBUG KBM: Text extraction result length: {len(text_content) if text_content else 0} characters")
 
             if not text_content:
                 logger.warning(f"No text extracted from document {document_id} ({saved_filename}).")
@@ -174,7 +296,15 @@ class KnowledgeBaseManager:
                 db.session.commit()
                 return False, "No text could be extracted from the document."
 
-            chunks_text = self.text_splitter.split_text(text_content)
+            print(f"--- DEBUG KBM: Splitting text into chunks using {type(self.text_splitter).__name__}")
+            try:
+                chunks_text = self.text_splitter.split_text(text_content)
+                print(f"--- DEBUG KBM: Text successfully split into {len(chunks_text)} chunks")
+            except Exception as e:
+                logger.error(f"Error splitting text for document {document_id}: {e}")
+                doc.status = "error_text_splitting"
+                db.session.commit()
+                return False, f"Error splitting text: {str(e)}"
 
             if not chunks_text:
                 logger.warning(f"No chunks created for document {document_id}. Text length: {len(text_content)}")
@@ -183,8 +313,16 @@ class KnowledgeBaseManager:
                 return False, "Document yielded no text chunks after splitting."
             
             logger.info(f"Processing {len(chunks_text)} chunks for document {document_id} using {self.embedding_service.model_name}.")
-
-            chunk_embeddings_list = self.embedding_service.get_embeddings(chunks_text, input_type="passage")
+            print(f"--- DEBUG KBM: Generating embeddings for {len(chunks_text)} chunks using {self.embedding_service.model_name}")
+            
+            try:
+                chunk_embeddings_list = self.embedding_service.get_embeddings(chunks_text, input_type="passage")
+                print(f"--- DEBUG KBM: Embeddings generation completed, got {len(chunk_embeddings_list)} embedding vectors")
+            except Exception as e:
+                logger.error(f"Error generating embeddings for document {document_id}: {e}")
+                doc.status = "error_embedding_generation"
+                db.session.commit()
+                return False, f"Error generating embeddings: {str(e)}"
 
             if not chunk_embeddings_list or not any(e for e in chunk_embeddings_list):
                 logger.error(f"Failed to generate any embeddings for chunks of document {document_id}.")
@@ -203,11 +341,20 @@ class KnowledgeBaseManager:
                     return False, "All document chunks failed to generate embeddings."
 
             chunk_embeddings_np = np.array(valid_embeddings, dtype='float32')
-
-            self._remove_document_chunks_from_faiss(document_id)
-            KnowledgeChunk.query.filter_by(document_id=document_id, portal_user_id=self.portal_user_id).delete()
-            db.session.commit()
-
+            
+            try:
+                print(f"--- DEBUG KBM: Removing any existing chunks for document {document_id} from FAISS index")
+                self._remove_document_chunks_from_faiss(document_id)
+                print(f"--- DEBUG KBM: Deleting existing chunk records from database")
+                KnowledgeChunk.query.filter_by(document_id=document_id).delete()
+                db.session.commit()
+                print(f"--- DEBUG KBM: Successfully removed existing chunks")
+            except Exception as e:
+                logger.error(f"Error removing existing chunks for document {document_id}: {e}")
+                doc.status = "error_removing_chunks"
+                db.session.commit()
+                return False, f"Error removing existing chunks: {str(e)}"
+                
             new_faiss_ids = []
             for i, text_chunk in enumerate(valid_chunks_text):
                 faiss_id = self.index.ntotal 
@@ -215,9 +362,7 @@ class KnowledgeBaseManager:
                 
                 chunk_record = KnowledgeChunk(
                     document_id=document_id,
-                    portal_user_id=self.portal_user_id,
                     chunk_text=text_chunk,
-                    embedding_model_name=self.embedding_service.model_name,
                     faiss_index_id=faiss_id 
                 )
                 db.session.add(chunk_record)
@@ -226,7 +371,6 @@ class KnowledgeBaseManager:
 
             temp_chunk_records = KnowledgeChunk.query.filter(
                 KnowledgeChunk.document_id == document_id,
-                KnowledgeChunk.portal_user_id == self.portal_user_id,
                 KnowledgeChunk.faiss_index_id.in_(new_faiss_ids)
             ).order_by(KnowledgeChunk.faiss_index_id).all()
 
@@ -239,8 +383,16 @@ class KnowledgeBaseManager:
             for i, chunk_record in enumerate(temp_chunk_records):
                 self.id_map[chunk_record.faiss_index_id] = chunk_record.id
 
-            self.index.add(chunk_embeddings_np) # Add to FAISS
-            
+            try:
+                print(f"--- DEBUG KBM: Adding {len(chunk_embeddings_np)} vectors to FAISS index")
+                self.index.add(chunk_embeddings_np) # Add to FAISS
+                print(f"--- DEBUG KBM: Successfully added vectors to FAISS index")
+            except Exception as e:
+                logger.error(f"Error adding vectors to FAISS index for document {document_id}: {e}")
+                doc.status = "error_faiss_add"
+                db.session.commit()
+                return False, f"Error adding to FAISS index: {str(e)}"
+
             doc.status = "processed"
             doc.chunk_count = len(valid_chunks_text)
             doc.processed_at = datetime.utcnow()
@@ -297,8 +449,7 @@ class KnowledgeBaseManager:
                 continue
 
             chunk_record = db.session.query(KnowledgeChunk).options(joinedload(KnowledgeChunk.document)).filter(
-                KnowledgeChunk.id == chunk_pk,
-                KnowledgeChunk.portal_user_id == self.portal_user_id
+                KnowledgeChunk.id == chunk_pk
             ).first()
 
             if chunk_record:
@@ -328,8 +479,7 @@ class KnowledgeBaseManager:
     def _remove_document_chunks_from_faiss(self, document_id: int):
         self._ensure_services_loaded()
         chunks_to_remove = KnowledgeChunk.query.filter_by(
-            document_id=document_id, 
-            portal_user_id=self.portal_user_id
+            document_id=document_id
         ).all()
         
         if not chunks_to_remove:
@@ -432,7 +582,7 @@ class KnowledgeBaseManager:
 
         try:
             self._remove_document_chunks_from_faiss(document_id)
-            KnowledgeChunk.query.filter_by(document_id=document_id, portal_user_id=self.portal_user_id).delete()
+            KnowledgeChunk.query.filter_by(document_id=document_id).delete()
             db.session.delete(doc)
             db.session.commit()
             save_kb_components()

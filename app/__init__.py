@@ -25,17 +25,37 @@ login_manager.login_message_category = 'info'
 
 
 def create_app(config_name=None):
-    from app.services.scheduler_service import SchedulerService
-    from app.services.embedding_service import initialize_embedding_service
-    from app.services.knowledge_base_manager import initialize_kb_components, save_kb_components
+    print("\n=== APP INITIALIZATION STARTED ===")
+    print(f"--- Current working directory: {os.getcwd()}")
+    
+    # Import services
+    try:
+        from app.services.scheduler_service import SchedulerService
+        from app.services.embedding_service import initialize_embedding_service
+        from app.services.knowledge_base_manager import initialize_kb_components, save_kb_components
+        print("--- Successfully imported service modules")
+    except ImportError as e:
+        print(f"--- CRITICAL: Failed to import service modules: {e}")
+        raise
+    
     import atexit
+    
+    # Initialize scheduler service
+    print("--- Initializing SchedulerService...")
     scheduler_service = SchedulerService()
+    
+    # Determine config
     if config_name is None:
         config_name = get_config_name()
+    print(f"--- Using config: {config_name}")
     
+    # Create Flask app
+    print("--- Creating Flask application...")
     app = Flask(__name__, instance_relative_config=True)
+    print("--- Loading configuration...")
     app.config.from_object(config_by_name[config_name])
     app.scheduler_service = scheduler_service  # Attach to app for global access
+    print("--- Flask app created and configured")
     
     try:
         os.makedirs(app.instance_path, exist_ok=True)
@@ -43,22 +63,67 @@ def create_app(config_name=None):
     except OSError:
         pass
 
-    # Initialize extensions
-    db.init_app(app)
-    migrate.init_app(app, db)
-    login_manager.init_app(app)
-    csrf.init_app(app)
+    # Initialize extensions with debug info
+    print("\n--- Initializing Flask extensions...")
+    try:
+        print("--- Initializing SQLAlchemy...")
+        db.init_app(app)
+        print("--- Initializing Migrate...")
+        migrate.init_app(app, db)
+        print("--- Initializing LoginManager...")
+        login_manager.init_app(app)
+        print("--- Initializing CSRF protection...")
+        csrf.init_app(app)
+        print("--- All Flask extensions initialized successfully")
+    except Exception as e:
+        print(f"--- ERROR initializing Flask extensions: {e}")
+        raise
     
     # Initialize limiter with app
     limiter.init_app(app)
 
     # Initialize EmbeddingService first, then Knowledge Base components
     with app.app_context():
-        initialize_embedding_service(app) # Initialize embedding service using app.config
-        initialize_kb_components(app) # Initialize KB components (FAISS) which now uses the embedding_service
-    
-    # Register save_kb_components to be called on application exit
-    atexit.register(save_kb_components)
+        # Initialize services with debug info
+        print("\n--- Initializing application services...")
+        
+        # Import the embedding service module
+        from app.services import embedding_service as es_module
+        
+        try:
+            print("\n--- [1] Before initialize_embedding_service() ---")
+            print(f"--- Global embedding_service_instance ID: {id(es_module.embedding_service_instance) if es_module.embedding_service_instance is not None else 'None'}")
+            
+            print("--- Initializing Embedding Service...")
+            initialize_embedding_service(app)
+            
+            print("\n--- [2] After initialize_embedding_service() ---")
+            print(f"--- Global embedding_service_instance ID: {id(es_module.embedding_service_instance) if es_module.embedding_service_instance is not None else 'None'}")
+            if es_module.embedding_service_instance is not None:
+                print(f"--- Client loaded: {hasattr(es_module.embedding_service_instance, 'client') and es_module.embedding_service_instance.client is not None}")
+                print(f"--- Model: {getattr(es_module.embedding_service_instance, 'model_name', 'unknown')}")
+            
+            print("\n--- [3] Before initialize_kb_components() ---")
+            print("--- Initializing Knowledge Base components...")
+            
+            with app.app_context():
+                initialize_kb_components(app)
+                
+            print("\n--- [4] After initialize_kb_components() ---")
+            print("--- Knowledge Base initialization complete")
+                
+            print("--- Registering cleanup handlers...")
+            atexit.register(save_kb_components)
+            print("--- Cleanup handlers registered")
+            
+            print("\n=== ALL SERVICES INITIALIZED SUCCESSFULLY ===\n")
+        except Exception as e:
+            print(f"\n!!! CRITICAL ERROR DURING SERVICE INITIALIZATION: {e}")
+            print("!!! Application may not function correctly")
+            print("!!! Full traceback:")
+            import traceback
+            traceback.print_exc()
+            raise
 
     # Only initialize scheduler if enabled
     if app.config.get('SCHEDULER_API_ENABLED', True):
