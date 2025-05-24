@@ -1,6 +1,6 @@
 import logging
 import random
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Union, Tuple
 from datetime import datetime, timezone
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -151,8 +151,9 @@ class PostGeneratorService:
     def generate_content(
         self, document_id: int, platform: str = 'twitter',
         tone: str = 'informative', style: str = 'concise', topic: Optional[str] = None, max_length: int = 280,
-        include_hashtags: bool = True, include_emoji: bool = True, use_llm: bool = True, portal_user_id: Optional[int] = None
-    ) -> str:
+        include_hashtags: bool = True, include_emoji: bool = True, use_llm: bool = True, portal_user_id: Optional[int] = None,
+        return_prompt: bool = False
+    ):  # Return type can be either str or a tuple of (str, dict)
         """Generate content optimized for a specific platform with enhanced customization.
         
         Args:
@@ -224,6 +225,15 @@ class PostGeneratorService:
                         "call_to_action": "Learn more on our website" if style != "question" else "Share your thoughts!"
                     }
                     
+                    # Add Instagram-specific guidance if platform is Instagram
+                    if platform == 'instagram':
+                        content_context["instagram_guidance"] = {
+                            "use_emojis": True,
+                            "focus_on_visuals": True,
+                            "hashtag_density": "high" if include_hashtags else "none",
+                            "suggested_carousel_slides": 3 if style == "detailed" else 1
+                        }
+                    
                     # Call the LLM service
                     llm_content = self.llm_service.generate_content(
                         content_context=content_context,
@@ -231,6 +241,8 @@ class PostGeneratorService:
                     )
                     
                     logger.info(f"Generated content using LLM for document {document_id}")
+                    if return_prompt:
+                        return llm_content, content_context
                     return llm_content
                     
                 except Exception as llm_error:
@@ -248,6 +260,11 @@ class PostGeneratorService:
                     "Did you know? {key_point}",
                     "Here's an interesting fact about {topic}: {key_point}",
                     "Learn more about {topic}: {key_point}"
+                ],
+                'instagram_informational': [
+                    "📱 Instagram Insight: {key_point}",
+                    "📸 Visual Story: {key_point}",
+                    "✨ Discover more about {topic}: {key_point}"
                 ],
                 'promotional': [
                     "Discover how {topic} can transform your approach! {key_point}",
@@ -274,6 +291,11 @@ class PostGeneratorService:
                         "Have you heard that {key_point}?",
                         "Are you aware of how {topic} affects us? {key_point}"
                     ],
+                    'instagram_informational': [
+                        "📸 Ever wondered about {topic}? {key_point}",
+                        "🤔 What do you think about {key_point}?",
+                        "📱 Share your thoughts on {topic}: {key_point}"
+                    ],
                     'promotional': [
                         "Want to discover how {topic} can help? {key_point}",
                         "Ready to transform your approach to {topic}? {key_point}",
@@ -296,6 +318,11 @@ class PostGeneratorService:
                         "I recently learned about {topic} and was surprised to discover that {key_point}",
                         "While researching {topic}, we uncovered something interesting: {key_point}",
                         "The story of {topic} reveals an important truth: {key_point}"
+                    ],
+                    'instagram_informational': [
+                        "📸 Ever wondered about {topic}? {key_point}",
+                        "🤔 What do you think about {key_point}?",
+                        "📱 Share your thoughts on {topic}: {key_point}"
                     ],
                     'promotional': [
                         "A client's journey with {topic} led to amazing results: {key_point}",
@@ -338,9 +365,30 @@ class PostGeneratorService:
                 hashtags = [f"#{term.replace(' ', '')}" for term in key_terms[:2]]
                 platform_tag = f"#{platform.capitalize()}" if platform in ['twitter', 'linkedin', 'facebook', 'instagram'] else ""
                 
-                # Add hashtags based on platform limit
-                if platform == 'twitter' and len(content) + len(' '.join(hashtags)) + 1 <= max_length:
-                    content += "\n" + ' '.join(hashtags)
+                # Add hashtags if requested and if they fit
+                if include_hashtags:
+                    hashtag_string = ' '.join(f'#{tag}' for tag in hashtags)
+                    
+                    # For Instagram, add more hashtags and group them at the end
+                    if platform == 'instagram':
+                        # Add some popular Instagram hashtags related to the topic
+                        popular_tags = ['instadaily', 'instagood', 'photooftheday']
+                        topic_word = topic.split()[0] if topic else selected_topic['terms'][0] if selected_topic['terms'] else ''
+                        if topic_word:
+                            popular_tags.extend([f'insta{topic_word.lower()}', f'{topic_word.lower()}gram'])
+                            
+                        # Add popular tags if they fit
+                        extended_hashtags = hashtags + popular_tags
+                        extended_hashtag_string = ' '.join(f'#{tag}' for tag in extended_hashtags)
+                        
+                        if len(content) + len(extended_hashtag_string) + 2 <= max_length:
+                            content += '\n\n' + extended_hashtag_string
+                        elif len(content) + len(hashtag_string) + 2 <= max_length:
+                            content += '\n\n' + hashtag_string
+                    else:
+                        # For other platforms, add hashtags if they fit
+                        if len(content) + len(hashtag_string) + 1 <= max_length:
+                            content += '\n' + hashtag_string
                 elif platform in ['linkedin', 'facebook', 'instagram'] and len(content) + len(' '.join(hashtags + [platform_tag])) + 1 <= max_length:
                     content += "\n" + ' '.join(hashtags + ([platform_tag] if platform_tag else []))
             
@@ -391,12 +439,38 @@ class PostGeneratorService:
                     emoji = tone_emoji.get(tone, '📌')
                     
                 # Add emoji to beginning if it fits
-                if len(content) + 2 <= max_length:
-                    content = f"{emoji} {content}"
+                if emoji_map.get(style) and len(content) + 2 <= max_length:
+                    content = f"{emoji_map[style]} {content}"
+                
+                # Add additional emojis for Instagram to make content more engaging
+                if platform == 'instagram' and include_emoji:
+                    # Instagram-specific emoji enhancements
+                    instagram_emojis = ['✨', '📸', '📱', '💯', '🔥', '❤️']
+                    if len(content) + 4 <= max_length:  # Allow space for emoji and space
+                        random_emoji = random.choice(instagram_emojis)
+                        if not content.startswith(random_emoji):
+                            content = f"{random_emoji} {content}"
                     
             # Ensure content is within max_length
             if len(content) > max_length:
                 content = content[:max_length-3] + "..."
+            
+            if return_prompt:
+                # Create a simplified prompt data structure for template display
+                prompt_data = {
+                    "document_id": document_id,
+                    "platform": platform,
+                    "tone": tone,
+                    "style": style,
+                    "topic": topic or ' '.join(selected_topic['terms'][:3]),
+                    "max_length": max_length,
+                    "include_hashtags": include_hashtags,
+                    "include_emoji": include_emoji,
+                    "selected_topic_terms": selected_topic['terms'],
+                    "key_points": [chunk.chunk_text[:100] + "..." if len(chunk.chunk_text) > 100 else chunk.chunk_text 
+                                  for chunk in selected_topic['chunks'][:2]]
+                }
+                return content, prompt_data
                 
             return content
             

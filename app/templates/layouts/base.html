@@ -32,22 +32,22 @@
                             <a class="nav-link {% if request.blueprint == 'kb_bp' %}active{% endif %}" href="{{ url_for('kb_bp.manage_knowledge_base') }}"><i class="bi bi-book-half"></i> Knowledge Base</a>
                         </li>
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle {% if request.blueprint == 'content_studio_bp' %}active{% endif %}" href="#" id="contentStudioDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <a class="nav-link dropdown-toggle {% if request.blueprint == 'content_studio_bp' %}active{% endif %}" href="{{ url_for('content_studio_bp.index') }}" id="contentStudioDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                 <i class="bi bi-pencil-square"></i> Content Studio
                             </a>
                             <ul class="dropdown-menu" aria-labelledby="contentStudioDropdown">
-                                <li><a class="dropdown-item {% if request.endpoint.endswith('compose_post') %}active{% endif %}" href="{{ url_for('content_studio_bp.composer') }}">Compose Post</a></li>
-                                <li><a class="dropdown-item {% if request.endpoint.endswith('schedule_overview') %}active{% endif %}" href="{{ url_for('content_studio_bp.drafts') }}">Drafts & Schedule</a></li>
+                                <li><a class="dropdown-item {% if request.endpoint == 'content_studio_bp.composer' %}active{% endif %}" href="{{ url_for('content_studio_bp.composer') }}">Compose Post</a></li>
+                                <li><a class="dropdown-item {% if request.endpoint == 'content_studio_bp.drafts' %}active{% endif %}" href="{{ url_for('content_studio_bp.drafts') }}">Drafts & Schedule</a></li>
                             </ul>
                         </li>
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle {% if request.blueprint == 'engagement_bp' %}active{% endif %}" href="#" id="engagementDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <a class="nav-link dropdown-toggle {% if request.blueprint == 'engagement_bp' %}active{% endif %}" href="{{ url_for('engagement_bp.index') }}" id="engagementDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                 <i class="bi bi-chat-dots-fill"></i> Engagement Hub
                             </a>
                             <ul class="dropdown-menu" aria-labelledby="engagementDropdown">
-                                <li><a class="dropdown-item {% if request.endpoint.endswith('comment_settings') %}active{% endif %}" href="{{ url_for('engagement_bp.comment_settings') }}">Comment Settings</a></li>
-                                <li><a class="dropdown-item {% if request.endpoint.endswith('review_comments_queue') %}active{% endif %}" href="{{ url_for('engagement_bp.review_comments_queue') }}">Review Comments</a></li>
-                                <li><a class="dropdown-item {% if request.endpoint.endswith('comments_log') %}active{% endif %}" href="{{ url_for('engagement_bp.comments_log') }}">Comments Log</a></li>
+                                <li><a class="dropdown-item {% if request.endpoint == 'engagement_bp.comment_settings' %}active{% endif %}" href="{{ url_for('engagement_bp.comment_settings') }}">Comment Settings</a></li>
+                                <li><a class="dropdown-item {% if request.endpoint == 'engagement_bp.review_comments_queue' %}active{% endif %}" href="{{ url_for('engagement_bp.review_comments_queue') }}">Review Comments</a></li>
+                                <li><a class="dropdown-item {% if request.endpoint == 'engagement_bp.comments_log' %}active{% endif %}" href="{{ url_for('engagement_bp.comments_log') }}">Comments Log</a></li>
                             </ul>
                         </li>
                     {% endif %}
@@ -99,8 +99,10 @@
     </footer>
 
     {% block scripts %}
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-QJHtvGhmr9XOIpI6YVutG+2QOK9T+ZnN4kzFN1RtK3zEFEIsxhlmWl5/YESvpZ13" crossorigin="anonymous"></script>
-<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+        <!-- jQuery first, then Bootstrap JS -->
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     {% endblock %}
 </body>
 </html>

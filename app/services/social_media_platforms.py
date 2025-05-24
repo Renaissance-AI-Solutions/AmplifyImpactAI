@@ -7,6 +7,7 @@ from app import db
 from datetime import datetime, timezone, timedelta
 from flask import current_app
 from flask.globals import session
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -294,9 +295,194 @@ class XPlatform(SocialMediaPlatform):
             logger.error(f"XPlatform: Error validating credentials: {e}")
             return False
 
+class InstagramPlatform(SocialMediaPlatform):
+    PLATFORM_NAME = "Instagram"
+
+    def get_platform_name(self) -> str:
+        return self.PLATFORM_NAME
+
+    def _initialize_client(self):
+        if not self.managed_account or not self.managed_account.access_token:
+            logger.warning("InstagramPlatform: Cannot initialize client, no access token for account %s", self.managed_account.id if self.managed_account else "N/A")
+            self.client = None
+            return
+
+        # In a real implementation, you would initialize an Instagram API client here
+        # For now, we'll create a minimal client structure to maintain compatibility
+        self.client = {
+            'access_token': self.managed_account.access_token,
+            'user_id': self.managed_account.account_id_on_platform
+        }
+        
+        # Log successful initialization
+        logger.info(f"Instagram client initialized for account {self.managed_account.account_display_name}")
+
+    def get_oauth_authorization_url(self) -> tuple[str, str | None]:
+        # Instagram uses OAuth 2.0
+        client_id = current_app.config.get('INSTAGRAM_CLIENT_ID')
+        redirect_uri = current_app.config.get('INSTAGRAM_REDIRECT_URI')
+        
+        if not client_id or not redirect_uri:
+            logger.error("InstagramPlatform: Missing Instagram API credentials in configuration")
+            raise ValueError("Missing Instagram API configuration")
+            
+        # Scope for basic permissions (could be expanded as needed)
+        scope = "user_profile,user_media"
+        
+        # Build the authorization URL
+        auth_url = (f"https://api.instagram.com/oauth/authorize"
+                   f"?client_id={client_id}"
+                   f"&redirect_uri={redirect_uri}"
+                   f"&scope={scope}"
+                   f"&response_type=code")
+        
+        return auth_url, None  # No code verifier needed for basic OAuth 2.0
+
+    def fetch_oauth_tokens(self, authorization_response_url: str = None, code: str = None, verifier: str = None, oauth_verifier: str = None) -> dict:
+        client_id = current_app.config.get('INSTAGRAM_CLIENT_ID')
+        client_secret = current_app.config.get('INSTAGRAM_CLIENT_SECRET')
+        redirect_uri = current_app.config.get('INSTAGRAM_REDIRECT_URI')
+        
+        if not all([client_id, client_secret, redirect_uri, code]):
+            logger.error("InstagramPlatform: Missing required parameters for token exchange")
+            raise ValueError("Missing required parameters for Instagram token exchange")
+            
+        try:
+            # Exchange authorization code for access token
+            token_url = "https://api.instagram.com/oauth/access_token"
+            data = {
+                'client_id': client_id,
+                'client_secret': client_secret,
+                'grant_type': 'authorization_code',
+                'redirect_uri': redirect_uri,
+                'code': code
+            }
+            
+            response = requests.post(token_url, data=data)
+            response.raise_for_status()
+            token_data = response.json()
+            
+            # Get user info using the short-lived access token
+            user_id = token_data.get('user_id')
+            access_token = token_data.get('access_token')
+            
+            # Optional: Exchange for a long-lived token
+            # (In a real implementation, you would do this)
+            
+            # Get additional user info
+            user_info = self._get_user_info_with_token(user_id, access_token)
+            
+            return {
+                'access_token': access_token,
+                'user_id_on_platform': user_id,
+                'username': user_info.get('username', ''),
+                'display_name': user_info.get('full_name', '')
+            }
+            
+        except requests.RequestException as e:
+            logger.error(f"InstagramPlatform: Error fetching OAuth tokens: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"InstagramPlatform: Unexpected error fetching OAuth tokens: {e}")
+            raise
+    
+    def _get_user_info_with_token(self, user_id, access_token):
+        # This would use the Instagram Graph API to get user info
+        # For now, returning mock data
+        return {
+            'id': user_id,
+            'username': f"instagram_user_{user_id}",
+            'full_name': f"Instagram User {user_id}"
+        }
+
+    def refresh_access_token(self) -> bool:
+        # In a real implementation, you would refresh the Instagram access token
+        # For now, we'll assume it's valid
+        return True
+
+    def post_update(self, content: str, media_ids: list = None) -> dict:
+        if not self.client:
+            logger.error("InstagramPlatform: Cannot post update - client not initialized")
+            return {'error': 'Client not initialized'}
+            
+        try:
+            # In a real implementation, you would post to Instagram
+            # For now, return mock response
+            return {
+                'id': f"ig_post_{datetime.now(timezone.utc).timestamp()}",
+                'status': 'success',
+                'message': 'Instagram post created successfully (mock)'
+            }
+        except Exception as e:
+            logger.error(f"InstagramPlatform: Error posting update: {e}")
+            return {'error': str(e)}
+
+    def post_comment(self, target_post_id: str, comment_text: str) -> dict:
+        if not self.client:
+            logger.error("InstagramPlatform: Cannot post comment - client not initialized")
+            return {'error': 'Client not initialized'}
+            
+        try:
+            # In a real implementation, you would post a comment to Instagram
+            # For now, return mock response
+            return {
+                'id': f"ig_comment_{datetime.now(timezone.utc).timestamp()}",
+                'status': 'success',
+                'message': 'Instagram comment created successfully (mock)'
+            }
+        except Exception as e:
+            logger.error(f"InstagramPlatform: Error posting comment: {e}")
+            return {'error': str(e)}
+
+    def search_posts(self, query: str, count: int = 10) -> list:
+        if not self.client:
+            logger.error("InstagramPlatform: Cannot search posts - client not initialized")
+            return []
+            
+        try:
+            # In a real implementation, you would search Instagram posts
+            # For now, return empty list as Instagram API has limited search capabilities
+            return []
+        except Exception as e:
+            logger.error(f"InstagramPlatform: Error searching posts: {e}")
+            return []
+
+    def get_user_info(self) -> dict | None:
+        if not self.client:
+            logger.error("InstagramPlatform: Cannot get user info - client not initialized")
+            return None
+            
+        try:
+            # In a real implementation, you would fetch user info from Instagram
+            # For now, return mock data
+            return {
+                'id': self.managed_account.account_id_on_platform,
+                'username': self.managed_account.account_display_name or f"instagram_user_{self.managed_account.account_id_on_platform}",
+                'name': self.managed_account.account_display_name or f"Instagram User {self.managed_account.account_id_on_platform}",
+                'followers_count': 1000,  # Mock data
+                'following_count': 500    # Mock data
+            }
+        except Exception as e:
+            logger.error(f"InstagramPlatform: Error getting user info: {e}")
+            return None
+
+    def validate_credentials(self) -> bool:
+        if not self.client:
+            logger.error("InstagramPlatform: Cannot validate credentials - client not initialized")
+            return False
+            
+        try:
+            # In a real implementation, you would validate the Instagram credentials
+            # For now, assume they're valid if client is initialized
+            return True
+        except Exception as e:
+            logger.error(f"InstagramPlatform: Error validating credentials: {e}")
+            return False
+
 # Platform class mapping
 PLATFORM_CLASS_MAP = {
-    'X': XPlatform
+    'X': XPlatform,
+    'Instagram': InstagramPlatform
 }
 
 def get_platform_connector_by_name(platform_name: str) -> SocialMediaPlatform | None:

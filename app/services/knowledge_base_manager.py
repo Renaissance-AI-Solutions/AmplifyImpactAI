@@ -234,13 +234,25 @@ class KnowledgeBaseManager:
             from string import punctuation
             from collections import Counter
             
-            # Ensure stopwords are available
-            try:
-                stop_words = set(stopwords.words('english'))
-            except LookupError:
-                nltk.download('stopwords')
-                stop_words = set(stopwords.words('english'))
-            
+            # Ensure required NLTK resources are available
+            required_resources = ['punkt', 'averaged_perceptron_tagger', 'stopwords']
+        
+            # Download all required resources
+            for resource in required_resources:
+                try:
+                    if resource == 'punkt':
+                        sent_tokenize("Test sentence.")
+                    elif resource == 'stopwords':
+                        stop_words = set(stopwords.words('english'))
+                    elif resource == 'averaged_perceptron_tagger':
+                        nltk.pos_tag(["Test"])
+                except LookupError:
+                    logger.info(f"Downloading NLTK resource: {resource}")
+                    nltk.download(resource)
+        
+            # Initialize stopwords after ensuring they're downloaded
+            stop_words = set(stopwords.words('english'))
+                
             # Custom stopwords for documents
             custom_stopwords = {'also', 'using', 'used', 'one', 'two', 'use', 'may', 'page', 
                              'table', 'figure', 'section', 'example', 'can', 'could', 'would'}
@@ -412,10 +424,30 @@ class KnowledgeBaseManager:
             print(f"--- DEBUG KBM: Generating embeddings for {len(chunks_text)} chunks using {self.embedding_service.model_name}")
             
             try:
-                chunk_embeddings_list = self.embedding_service.get_embeddings(chunks_text, input_type="passage")
-                print(f"--- DEBUG KBM: Embeddings generation completed, got {len(chunk_embeddings_list)} embedding vectors")
+                # Process chunks in batches to avoid memory issues
+                batch_size = 50  # Process 50 chunks at a time
+                chunk_embeddings_list = []
+                
+                for i in range(0, len(chunks_text), batch_size):
+                    batch_end = min(i + batch_size, len(chunks_text))
+                    print(f"--- DEBUG KBM: Generating embeddings for batch {i//batch_size + 1}/{(len(chunks_text) + batch_size - 1)//batch_size}, chunks {i} to {batch_end-1}")
+                    
+                    batch_chunks = chunks_text[i:batch_end]
+                    batch_embeddings = self.embedding_service.get_embeddings(batch_chunks, input_type="passage")
+                    
+                    if len(batch_embeddings) != len(batch_chunks):
+                        logger.warning(f"Batch {i//batch_size + 1} returned {len(batch_embeddings)} embeddings for {len(batch_chunks)} chunks")
+                    
+                    chunk_embeddings_list.extend(batch_embeddings)
+                    print(f"--- DEBUG KBM: Completed batch {i//batch_size + 1}, total embeddings so far: {len(chunk_embeddings_list)}")
+                    
+                    # Commit progress to database to show partial progress
+                    doc.status = f"processing_batch_{i//batch_size + 1}"
+                    db.session.commit()
+                    
+                print(f"--- DEBUG KBM: All embeddings generation completed, got {len(chunk_embeddings_list)} embedding vectors for {len(chunks_text)} chunks")
             except Exception as e:
-                logger.error(f"Error generating embeddings for document {document_id}: {e}")
+                logger.error(f"Error generating embeddings for document {document_id}: {e}", exc_info=True)
                 doc.status = "error_embedding_generation"
                 db.session.commit()
                 return False, f"Error generating embeddings: {str(e)}"
@@ -480,11 +512,25 @@ class KnowledgeBaseManager:
                 self.id_map[chunk_record.faiss_index_id] = chunk_record.id
 
             try:
-                print(f"--- DEBUG KBM: Adding {len(chunk_embeddings_np)} vectors to FAISS index")
-                self.index.add(chunk_embeddings_np) # Add to FAISS
-                print(f"--- DEBUG KBM: Successfully added vectors to FAISS index")
+                # Add vectors to FAISS in smaller batches to avoid memory issues
+                faiss_batch_size = 100  # Add 100 vectors at a time
+                print(f"--- DEBUG KBM: Adding {len(chunk_embeddings_np)} vectors to FAISS index in batches")
+                
+                for i in range(0, len(chunk_embeddings_np), faiss_batch_size):
+                    batch_end = min(i + faiss_batch_size, len(chunk_embeddings_np))
+                    batch_embeddings = chunk_embeddings_np[i:batch_end]
+                    
+                    print(f"--- DEBUG KBM: Adding FAISS batch {i//faiss_batch_size + 1}/{(len(chunk_embeddings_np) + faiss_batch_size - 1)//faiss_batch_size}, vectors {i} to {batch_end-1}")
+                    self.index.add(batch_embeddings)  # Add batch to FAISS
+                    
+                    # Save FAISS index after each batch to ensure we don't lose progress
+                    if i % 200 == 0:  # Save every few batches to reduce disk I/O
+                        print(f"--- DEBUG KBM: Saving FAISS index after batch {i//faiss_batch_size + 1}")
+                        save_kb_components()
+                
+                print(f"--- DEBUG KBM: Successfully added all vectors to FAISS index")
             except Exception as e:
-                logger.error(f"Error adding vectors to FAISS index for document {document_id}: {e}")
+                logger.error(f"Error adding vectors to FAISS index for document {document_id}: {e}", exc_info=True)
                 doc.status = "error_faiss_add"
                 db.session.commit()
                 return False, f"Error adding to FAISS index: {str(e)}"

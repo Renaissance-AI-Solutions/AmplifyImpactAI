@@ -56,7 +56,7 @@ def generate():
                     }
                     
                     # Generate content
-                    generated_content = post_generator.generate_content(**params)
+                    generated_content, prompt_data = post_generator.generate_content(**params, return_prompt=True)
                     
                     # Handle save as draft if requested
                     if form.save_button.data and generated_content:
@@ -95,7 +95,8 @@ def generate():
         'content_generation/generate.html',
         form=form,
         generated_content=generated_content,
-        recent_drafts=recent_drafts
+        recent_drafts=recent_drafts,
+        prompt_data=prompt_data if 'prompt_data' in locals() else None
     )
 
 @bp.route('/api/generate-content', methods=['POST'])
@@ -135,7 +136,7 @@ def generate_content_api():
             return jsonify({'error': 'Invalid max_length value'}), 400
             
         # Generate content
-        content = post_generator.generate_content(
+        result = post_generator.generate_content(
             document_id=document_id,
             platform=platform,
             tone=tone,
@@ -143,15 +144,24 @@ def generate_content_api():
             topic=topic,
             max_length=max_length,
             include_hashtags=include_hashtags,
-            include_emoji=include_emoji
+            include_emoji=include_emoji,
+            return_prompt=True
         )
+        
+        # Unpack the result
+        if isinstance(result, tuple):
+            content, prompt_data = result
+        else:
+            content = result
+            prompt_data = None
         
         if not content:
             return jsonify({'error': 'Failed to generate content'}), 500
             
         return jsonify({
             'success': True,
-            'content': content
+            'content': content,
+            'prompt_data': prompt_data
         })
         
     except Exception as e:

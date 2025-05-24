@@ -78,13 +78,25 @@ class EditCommentForm(FlaskForm):
     submit_edit = SubmitField('Save and Approve')
     approve_direct = SubmitField('Approve Original')
 
-def get_managed_account_choices(portal_user_id, platform='X', add_blank=False):
+def get_managed_account_choices(portal_user_id, platform=None, add_blank=False):
+    # Build the query based on provided platform filter
+    query = db.select(ManagedAccount).filter_by(portal_user_id=portal_user_id, is_active=True)
+    
+    # If a specific platform is requested, filter by it
+    if platform:
+        query = query.filter_by(platform_name=platform)
+        
+    # Get accounts and order by platform name and display name
     accounts = db.session.scalars(
-        db.select(ManagedAccount).filter_by(portal_user_id=portal_user_id, platform_name=platform, is_active=True).order_by(ManagedAccount.account_display_name)
+        query.order_by(ManagedAccount.platform_name, ManagedAccount.account_display_name)
     ).all()
-    choices = [(acc.id, acc.account_display_name or acc.account_id_on_platform) for acc in accounts]
+    
+    # Create choices with platform indicator in the display text
+    choices = [(acc.id, f"{acc.account_display_name or acc.account_id_on_platform} ({acc.platform_name})") for acc in accounts]
+    
     if add_blank:
         choices.insert(0, ('', '--- Select Account ---'))
+        
     return choices
 
 

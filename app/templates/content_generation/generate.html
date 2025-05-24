@@ -111,18 +111,24 @@
                         <div id="contentPreview" class="p-4 bg-gray-50 rounded border mb-2 whitespace-pre-wrap" style="min-height: 200px;">
                             {{ generated_content }}
                         </div>
-                        <div class="absolute top-2 right-2">
-                            <button id="copyButton" class="bg-gray-200 hover:bg-gray-300 text-gray-700 p-2 rounded">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                    <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
-                                    <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
-                                </svg>
-                            </button>
-                        </div>
+                        <button id="copyButton" class="absolute top-2 right-2 text-gray-500 hover:text-gray-700">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                                <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+                            </svg>
+                        </button>
                     </div>
                     <div class="text-right text-sm text-gray-500">
                         <span id="charCount">{{ generated_content|length }}</span> characters
                     </div>
+                    {% if prompt_data %}
+                    <div class="mt-2">
+                        <details class="bg-gray-50 rounded border p-2">
+                            <summary class="cursor-pointer text-sm font-medium text-gray-700">View Prompt</summary>
+                            <pre id="promptPreview" class="mt-2 p-3 bg-gray-100 text-xs text-gray-800 rounded overflow-auto max-h-60">{{ prompt_data|tojson(indent=2) }}</pre>
+                        </details>
+                    </div>
+                    {% endif %}
                     <div class="mt-4 flex space-x-2">
                         <form method="POST" action="{{ url_for('content_generation.generate') }}">
                             {{ form.hidden_tag() }}
@@ -138,6 +144,9 @@
                         </form>
                         <button id="regenerateButton" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
                             Regenerate
+                        </button>
+                        <button id="copyPromptButton" class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600">
+                            Copy Prompt
                         </button>
                     </div>
                 </div>
@@ -188,6 +197,24 @@ document.addEventListener('DOMContentLoaded', function() {
                     .catch(err => {
                         showToast('Failed to copy content', 'error');
                         console.error('Could not copy text: ', err);
+                    });
+            }
+        });
+    }
+    
+    // Copy prompt to clipboard functionality
+    const copyPromptButton = document.getElementById('copyPromptButton');
+    if (copyPromptButton) {
+        copyPromptButton.addEventListener('click', function() {
+            const promptPreview = document.getElementById('promptPreview');
+            if (promptPreview) {
+                navigator.clipboard.writeText(promptPreview.textContent.trim())
+                    .then(() => {
+                        showToast('Prompt copied to clipboard!', 'success');
+                    })
+                    .catch(err => {
+                        showToast('Failed to copy prompt', 'error');
+                        console.error('Could not copy prompt: ', err);
                     });
             }
         });

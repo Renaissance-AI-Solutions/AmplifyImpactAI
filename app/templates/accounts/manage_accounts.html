@@ -7,6 +7,9 @@
         <a href="{{ url_for('accounts_bp.add_account_start', platform_name='X') }}" class="btn btn-primary">
             <i class="bi bi-twitter"></i> Add New X Account
         </a>
+        <a href="{{ url_for('accounts_bp.add_account_start', platform_name='Instagram') }}" class="btn btn-primary ms-2">
+            <i class="bi bi-instagram"></i> Add New Instagram Account
+        </a>
         <!-- Future: Add buttons for other platforms -->
         <!-- <a href="{{ url_for('accounts_bp.add_account_start', platform_name='Facebook') }}" class="btn btn-secondary disabled">
             <i class="bi bi-facebook"></i> Add Facebook (Coming Soon)
@@ -32,6 +35,7 @@
                         <td>
                             {% if acc.platform_name == 'X' %}<i class="bi bi-twitter text-primary"></i>
                             {% elif acc.platform_name == 'Facebook' %}<i class="bi bi-facebook text-primary"></i>
+                            {% elif acc.platform_name == 'Instagram' %}<i class="bi bi-instagram text-danger"></i>
                             {% else %}<i class="bi bi-person-bounding-box"></i>
                             {% endif %}
                             {{ acc.platform_name }}
@@ -76,7 +80,7 @@
         </div>
     {% else %}
         <div class="alert alert-info" role="alert">
-            <i class="bi bi-info-circle-fill"></i> No social media accounts connected yet. Click "Add New X Account" to get started.
+            <i class="bi bi-info-circle-fill"></i> No social media accounts connected yet. Click one of the "Add New Account" buttons above to get started.
         </div>
     {% endif %}
 {% endblock %}
