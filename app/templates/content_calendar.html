@@ -1,0 +1,361 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Content Calendar - Amplify Impact Pro{% endblock %}
+{% block page_title %}Content Calendar{% endblock %}
+
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet">
+<style>
+    .fc-event {
+        cursor: pointer;
+    }
+    .fc-event-title {
+        font-weight: 500;
+    }
+    .platform-icon {
+        margin-right: 5px;
+    }
+    .event-status-pending {
+        border-left: 3px solid #ffc107;
+    }
+    .event-status-posted {
+        border-left: 3px solid #28a745;
+    }
+    .event-status-failed {
+        border-left: 3px solid #dc3545;
+    }
+    .fc-day-today {
+        background-color: rgba(13, 110, 253, 0.05) !important;
+    }
+    .legend-item {
+        display: flex;
+        align-items: center;
+        margin-right: 15px;
+    }
+    .legend-color {
+        width: 12px;
+        height: 12px;
+        margin-right: 5px;
+        display: inline-block;
+    }
+    .post-preview {
+        max-height: 100px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-md-9">
+            <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center bg-light">
+                    <h5 class="mb-0">Content Calendar</h5>
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-outline-primary" id="todayBtn">Today</button>
+                        <button class="btn btn-sm btn-outline-primary" id="prevBtn"><i class="bi bi-chevron-left"></i></button>
+                        <button class="btn btn-sm btn-outline-primary" id="nextBtn"><i class="bi bi-chevron-right"></i></button>
+                        <button class="btn btn-sm btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">View</button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#" data-view="dayGridMonth">Month</a></li>
+                            <li><a class="dropdown-item" href="#" data-view="timeGridWeek">Week</a></li>
+                            <li><a class="dropdown-item" href="#" data-view="timeGridDay">Day</a></li>
+                            <li><a class="dropdown-item" href="#" data-view="listWeek">List</a></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="calendar"></div>
+                </div>
+                <div class="card-footer bg-white">
+                    <div class="d-flex flex-wrap">
+                        <div class="legend-item">
+                            <span class="legend-color" style="background-color: #ffc107;"></span>
+                            <small>Pending</small>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color" style="background-color: #28a745;"></span>
+                            <small>Posted</small>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color" style="background-color: #dc3545;"></span>
+                            <small>Failed</small>
+                        </div>
+                        <div class="legend-item ms-3">
+                            <i class="bi bi-twitter text-primary me-1"></i>
+                            <small>X</small>
+                        </div>
+                        <div class="legend-item">
+                            <i class="bi bi-linkedin text-primary me-1"></i>
+                            <small>LinkedIn</small>
+                        </div>
+                        <div class="legend-item">
+                            <i class="bi bi-facebook text-primary me-1"></i>
+                            <small>Facebook</small>
+                        </div>
+                        <div class="legend-item">
+                            <i class="bi bi-instagram text-danger me-1"></i>
+                            <small>Instagram</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('main_bp.new_post') }}" class="btn btn-primary">
+                            <i class="bi bi-plus-circle me-2"></i>New Post
+                        </a>
+                        <a href="{{ url_for('main_bp.bulk_schedule') }}" class="btn btn-outline-primary">
+                            <i class="bi bi-calendar-plus me-2"></i>Bulk Schedule
+                        </a>
+                        <a href="{{ url_for('main_bp.recurring_posts') }}" class="btn btn-outline-primary">
+                            <i class="bi bi-arrow-repeat me-2"></i>Recurring Posts
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Filters</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Platforms</label>
+                        <div class="form-check">
+                            <input class="form-check-input platform-filter" type="checkbox" value="X" id="filterX" checked>
+                            <label class="form-check-label" for="filterX">
+                                <i class="bi bi-twitter text-primary me-1"></i> X
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input platform-filter" type="checkbox" value="LinkedIn" id="filterLinkedIn" checked>
+                            <label class="form-check-label" for="filterLinkedIn">
+                                <i class="bi bi-linkedin text-primary me-1"></i> LinkedIn
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input platform-filter" type="checkbox" value="Facebook" id="filterFacebook" checked>
+                            <label class="form-check-label" for="filterFacebook">
+                                <i class="bi bi-facebook text-primary me-1"></i> Facebook
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input platform-filter" type="checkbox" value="Instagram" id="filterInstagram" checked>
+                            <label class="form-check-label" for="filterInstagram">
+                                <i class="bi bi-instagram text-danger me-1"></i> Instagram
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Status</label>
+                        <div class="form-check">
+                            <input class="form-check-input status-filter" type="checkbox" value="pending" id="filterPending" checked>
+                            <label class="form-check-label" for="filterPending">
+                                <span class="badge bg-warning">Pending</span>
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input status-filter" type="checkbox" value="posted" id="filterPosted" checked>
+                            <label class="form-check-label" for="filterPosted">
+                                <span class="badge bg-success">Posted</span>
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input status-filter" type="checkbox" value="failed" id="filterFailed" checked>
+                            <label class="form-check-label" for="filterFailed">
+                                <span class="badge bg-danger">Failed</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Accounts</label>
+                        <select class="form-select" id="accountFilter">
+                            <option value="all">All Accounts</option>
+                            {% for account in accounts %}
+                            <option value="{{ account.id }}">{{ account.account_display_name }} ({{ account.platform_name }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <button id="applyFilters" class="btn btn-primary w-100">Apply Filters</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Post Details Modal -->
+<div class="modal fade" id="postDetailsModal" tabindex="-1" aria-labelledby="postDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="postDetailsModalLabel">Post Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <div class="d-flex align-items-center mb-2">
+                        <div id="modalPlatformIcon" class="me-2"></div>
+                        <h6 class="mb-0" id="modalAccountName"></h6>
+                    </div>
+                    <div id="modalStatus" class="mb-2"></div>
+                    <div class="mb-2">
+                        <small class="text-muted">Scheduled for: <span id="modalScheduledTime"></span></small>
+                    </div>
+                    <div id="modalPostedTime" class="mb-2"></div>
+                    <hr>
+                    <div id="modalContent" class="post-preview"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a href="#" id="modalEditLink" class="btn btn-outline-primary">Edit</a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize calendar
+        const calendarEl = document.getElementById('calendar');
+        const calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            headerToolbar: {
+                left: '',
+                center: 'title',
+                right: ''
+            },
+            events: '/api/scheduled-posts',
+            eventClick: function(info) {
+                showPostDetails(info.event);
+            },
+            eventDidMount: function(info) {
+                // Add platform icon and styling
+                const eventEl = info.el;
+                const event = info.event;
+                const status = event.extendedProps.status;
+                const platform = event.extendedProps.platform;
+                
+                // Add status class
+                eventEl.classList.add('event-status-' + status);
+                
+                // Add platform icon to title
+                const titleEl = eventEl.querySelector('.fc-event-title');
+                if (titleEl) {
+                    let iconClass = 'bi bi-globe';
+                    if (platform === 'X') iconClass = 'bi bi-twitter';
+                    else if (platform === 'LinkedIn') iconClass = 'bi bi-linkedin';
+                    else if (platform === 'Facebook') iconClass = 'bi bi-facebook';
+                    else if (platform === 'Instagram') iconClass = 'bi bi-instagram';
+                    
+                    const iconEl = document.createElement('i');
+                    iconEl.className = iconClass + ' platform-icon';
+                    titleEl.prepend(iconEl);
+                }
+            },
+            eventTimeFormat: {
+                hour: '2-digit',
+                minute: '2-digit',
+                meridiem: 'short'
+            }
+        });
+        
+        calendar.render();
+        
+        // Navigation buttons
+        document.getElementById('todayBtn').addEventListener('click', function() {
+            calendar.today();
+        });
+        
+        document.getElementById('prevBtn').addEventListener('click', function() {
+            calendar.prev();
+        });
+        
+        document.getElementById('nextBtn').addEventListener('click', function() {
+            calendar.next();
+        });
+        
+        // View dropdown
+        document.querySelectorAll('[data-view]').forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                const view = this.dataset.view;
+                calendar.changeView(view);
+            });
+        });
+        
+        // Filters
+        document.getElementById('applyFilters').addEventListener('click', function() {
+            const platformFilters = Array.from(document.querySelectorAll('.platform-filter:checked')).map(cb => cb.value);
+            const statusFilters = Array.from(document.querySelectorAll('.status-filter:checked')).map(cb => cb.value);
+            const accountFilter = document.getElementById('accountFilter').value;
+            
+            // Reload events with filters
+            calendar.removeAllEventSources();
+            calendar.addEventSource({
+                url: '/api/scheduled-posts',
+                extraParams: {
+                    platforms: platformFilters.join(','),
+                    statuses: statusFilters.join(','),
+                    account_id: accountFilter
+                }
+            });
+        });
+        
+        // Post details modal
+        function showPostDetails(event) {
+            const props = event.extendedProps;
+            
+            // Set platform icon
+            let iconClass = 'bi bi-globe';
+            if (props.platform === 'X') iconClass = 'bi bi-twitter text-primary';
+            else if (props.platform === 'LinkedIn') iconClass = 'bi bi-linkedin text-primary';
+            else if (props.platform === 'Facebook') iconClass = 'bi bi-facebook text-primary';
+            else if (props.platform === 'Instagram') iconClass = 'bi bi-instagram text-danger';
+            
+            document.getElementById('modalPlatformIcon').innerHTML = `<i class="${iconClass} fs-4"></i>`;
+            document.getElementById('modalAccountName').textContent = props.accountName;
+            
+            // Set status badge
+            let statusBadgeClass = 'badge bg-secondary';
+            if (props.status === 'pending') statusBadgeClass = 'badge bg-warning';
+            else if (props.status === 'posted') statusBadgeClass = 'badge bg-success';
+            else if (props.status === 'failed') statusBadgeClass = 'badge bg-danger';
+            
+            document.getElementById('modalStatus').innerHTML = `<span class="${statusBadgeClass}">${props.status.toUpperCase()}</span>`;
+            document.getElementById('modalScheduledTime').textContent = event.start.toLocaleString();
+            
+            if (props.postedTime) {
+                document.getElementById('modalPostedTime').innerHTML = `<small class="text-muted">Posted at: ${props.postedTime}</small>`;
+                document.getElementById('modalPostedTime').style.display = 'block';
+            } else {
+                document.getElementById('modalPostedTime').style.display = 'none';
+            }
+            
+            document.getElementById('modalContent').textContent = props.content;
+            document.getElementById('modalEditLink').href = `/posts/edit/${props.postId}`;
+            
+            // Show the modal
+            const modal = new bootstrap.Modal(document.getElementById('postDetailsModal'));
+            modal.show();
+        }
+    });
+</script>
+{% endblock %}

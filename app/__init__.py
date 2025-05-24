@@ -151,6 +151,9 @@ def create_app(config_name=None):
     from app.routes.engagement import engagement_bp
     app.register_blueprint(engagement_bp, url_prefix='/engagement')
 
+    from app.routes.scheduler import scheduler_bp
+    app.register_blueprint(scheduler_bp, url_prefix='/scheduler')
+
     if not app.debug and not app.testing:
         if app.config['LOG_TO_STDOUT']:
             stream_handler = logging.StreamHandler()

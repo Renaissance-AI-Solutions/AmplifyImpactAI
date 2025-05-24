@@ -3,80 +3,202 @@
 {% block title %}Dashboard - Amplify Impact Pro{% endblock %}
 
 {% block content %}
+<div class="container-fluid mt-4">
 <div class="row">
     <!-- Quick Actions -->
     <div class="col-12 mb-4">
-        <div class="card">
+        <div class="card shadow-sm">
             <div class="card-body">
                 <h5 class="card-title">Quick Actions</h5>
                 <div class="row g-3">
                     <div class="col-md-3">
                         <a href="{{ url_for('content_studio_bp.composer') }}" class="btn btn-primary w-100">
-                            <i class="fas fa-pen-alt"></i> Create Post
+                            <i class="bi bi-pencil-square"></i> Create Post
                         </a>
                     </div>
                     <div class="col-md-3">
-                        <a href="{{ url_for('engagement_bp.index') }}" class="btn btn-info w-100">
-                            <i class="fas fa-comments"></i> Manage Comments
+                        <a href="{{ url_for('scheduler_bp.content_calendar') }}" class="btn btn-success w-100">
+                            <i class="bi bi-calendar3"></i> Content Calendar
                         </a>
                     </div>
                     <div class="col-md-3">
-                        <a href="{{ url_for('accounts_bp.manage_accounts') }}" class="btn btn-success w-100">
-                            <i class="fas fa-user-plus"></i> Connect Account
+                        <a href="{{ url_for('scheduler_bp.bulk_schedule') }}" class="btn btn-info w-100">
+                            <i class="bi bi-calendar-plus"></i> Bulk Schedule
                         </a>
                     </div>
                     <div class="col-md-3">
-                        <a href="{{ url_for('kb_bp.manage_knowledge_base') }}" class="btn btn-warning w-100">
-                            <i class="fas fa-book"></i> Add Knowledge
+                        <a href="{{ url_for('main_bp.recurring_posts') }}" class="btn btn-warning w-100">
+                            <i class="bi bi-arrow-repeat"></i> Recurring Posts
                         </a>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Overview -->
+    <div class="col-md-4 mb-4">
+        <div class="row">
+            <div class="col-12 mb-4">
+                <div class="card shadow-sm bg-light">
+                    <div class="card-body text-center">
+                        <h3 class="display-4">{{ scheduled_posts_count }}</h3>
+                        <p class="text-muted mb-0">Scheduled Posts</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="card shadow-sm bg-light">
+                    <div class="card-body text-center">
+                        <h3 class="h2">{{ account_count }}</h3>
+                        <p class="text-muted mb-0">Accounts</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="card shadow-sm bg-light">
+                    <div class="card-body text-center">
+                        <h3 class="h2">{{ pending_comments_count }}</h3>
+                        <p class="text-muted mb-0">Pending Comments</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upcoming Posts -->
+    <div class="col-md-8 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Upcoming Scheduled Posts</h5>
+                <a href="{{ url_for('scheduler_bp.content_calendar') }}" class="btn btn-sm btn-outline-primary">View Calendar</a>
+            </div>
+            <div class="card-body">
+                {% if upcoming_posts %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Platform</th>
+                                <th>Content</th>
+                                <th>Scheduled For</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for post in upcoming_posts %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        {% set account = post.managed_account %}
+                                        {% if account.platform_name == 'X' %}
+                                            <i class="bi bi-twitter text-primary me-2"></i>
+                                        {% elif account.platform_name == 'LinkedIn' %}
+                                            <i class="bi bi-linkedin text-primary me-2"></i>
+                                        {% elif account.platform_name == 'Facebook' %}
+                                            <i class="bi bi-facebook text-primary me-2"></i>
+                                        {% elif account.platform_name == 'Instagram' %}
+                                            <i class="bi bi-instagram text-danger me-2"></i>
+                                        {% else %}
+                                            <i class="bi bi-globe text-secondary me-2"></i>
+                                        {% endif %}
+                                        <span>{{ account.account_display_name }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="text-truncate" style="max-width: 200px;">
+                                        {{ post.content }}
+                                    </div>
+                                </td>
+                                <td>
+                                    {{ post.scheduled_time.strftime('%b %d, %Y %H:%M') }}
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('scheduler_bp.edit_post', post_id=post.id) }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    No upcoming posts scheduled. 
+                    <a href="{{ url_for('scheduler_bp.bulk_schedule') }}" class="alert-link">Schedule some posts</a> to get started.
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
 
     <!-- Recent Activity -->
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Recent Posts</h5>
+    <div class="col-12 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Recent Activity</h5>
             </div>
             <div class="card-body">
-                <div class="list-group list-group-flush">
-                    {% for post in recent_posts %}
-                    <div class="list-group-item">
-                        <div class="d-flex w-100 justify-content-between">
-                            <h6 class="mb-1">{{ post.content[:50] }}...</h6>
-                            <small class="text-muted">{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
-                        </div>
-                        <small class="text-muted">Posted to: {{ post.managed_account.account_display_name }}</small>
-                    </div>
-                    {% endfor %}
+                {% if recent_activity %}
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Action</th>
+                                <th>Status</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for activity in recent_activity %}
+                            <tr>
+                                <td>{{ activity.timestamp.strftime('%b %d, %H:%M') }}</td>
+                                <td>
+                                    {% if 'POST' in activity.action_type %}
+                                        <span class="badge bg-primary">POST</span>
+                                    {% elif 'COMMENT' in activity.action_type %}
+                                        <span class="badge bg-info">COMMENT</span>
+                                    {% elif 'ACCOUNT' in activity.action_type %}
+                                        <span class="badge bg-success">ACCOUNT</span>
+                                    {% elif 'DOCUMENT' in activity.action_type %}
+                                        <span class="badge bg-warning">DOCUMENT</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ activity.action_type }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if activity.status == 'SUCCESS' %}
+                                        <span class="badge bg-success">Success</span>
+                                    {% elif activity.status == 'FAILED' %}
+                                        <span class="badge bg-danger">Failed</span>
+                                    {% elif activity.status == 'PENDING' %}
+                                        <span class="badge bg-warning">Pending</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ activity.status }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="text-truncate" style="max-width: 300px;">
+                                        {{ activity.details }}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    No recent activity to display.
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
-
-    <!-- Recent Comments -->
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Recent Comments</h5>
-            </div>
-            <div class="card-body">
-                <div class="list-group list-group-flush">
-                    {% for comment in recent_comments %}
-                    <div class="list-group-item">
-                        <div class="d-flex w-100 justify-content-between">
-                            <h6 class="mb-1">{{ comment.suggested_comment_text[:50] }}...</h6>
-                            <small class="text-muted">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
-                        </div>
-                        <small class="text-muted">Status: {{ comment.status }}</small>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-    </div>
+</div>
 </div>
 {% endblock %}

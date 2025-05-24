@@ -71,6 +71,7 @@ class CommentSettingsForm(FlaskForm):
 
 class ApiKeyForm(FlaskForm):
     openai_api_key = StringField('OpenAI API Key', validators=[Optional(), Length(min=20, max=100)])
+    gemini_api_key = StringField('Gemini API Key', validators=[Optional(), Length(min=20, max=100)])
     submit = SubmitField('Save API Key(s)')
 
 class EditCommentForm(FlaskForm):
@@ -172,6 +173,15 @@ class ContentGenerationForm(FlaskForm):
         ('question', 'Question'),
         ('story', 'Story-telling')
     ], validators=[DataRequired()])
+    model = SelectField('LLM Model', choices=[
+        ('gpt-3.5-turbo', 'GPT-3.5 Turbo (Default)'),
+        ('gpt-4', 'GPT-4 (Higher Quality)'),
+        ('gpt-4-turbo', 'GPT-4 Turbo (Fast & High Quality)'),
+        ('gpt-4.1', 'GPT-4.1 (Latest & Highest Quality)'),
+        ('gpt-4.1-mini', 'GPT-4.1 Mini (Balanced Performance)'),
+        ('gemini-2.5-flash', 'Gemini 2.5 Flash (Fast)'),
+        ('gemini-2.5-pro', 'Gemini 2.5 Pro (Advanced)')
+    ], default='gpt-3.5-turbo', validators=[DataRequired()])
     topic = StringField('Specific Topic/Focus (optional)', validators=[Optional(), Length(max=200)])
     max_length = IntegerField('Maximum Length (characters)', validators=[
         DataRequired(),
@@ -182,3 +192,12 @@ class ContentGenerationForm(FlaskForm):
     generate_button = SubmitField('Generate Content')
     copy_button = SubmitField('Copy to Clipboard')
     save_button = SubmitField('Save as Draft')
+
+
+class BulkScheduleForm(FlaskForm):
+    """Form for bulk scheduling posts."""
+    target_account_id = SelectField('Target Account', coerce=int, validators=[DataRequired()])
+    hidden_tag = HiddenField()
+    
+    # Note: The actual post content and scheduling options are handled in the frontend
+    # using dynamic form elements that are processed in the view function

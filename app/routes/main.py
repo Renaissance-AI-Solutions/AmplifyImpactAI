@@ -35,11 +35,24 @@ def dashboard():
         .all()
     )
     
+    # Get upcoming scheduled posts
+    upcoming_posts = db.session.scalars(
+        db.select(ScheduledPost)
+        .join(ManagedAccount, ScheduledPost.managed_account_id == ManagedAccount.id)
+        .filter(
+            ManagedAccount.portal_user_id == current_user.id,
+            ScheduledPost.status == 'pending'
+        )
+        .order_by(ScheduledPost.scheduled_time)
+        .limit(5)
+    ).all()
+    
     return render_template('main/dashboard.html',
                          account_count=account_count,
                          scheduled_posts_count=scheduled_posts_count,
                          pending_comments_count=pending_comments_count,
-                         recent_activity=recent_activity)
+                         recent_activity=recent_activity,
+                         upcoming_posts=upcoming_posts)
 
 @main_bp.route('/post-composer', methods=['GET', 'POST'])
 @login_required

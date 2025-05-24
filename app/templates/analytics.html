@@ -279,6 +279,111 @@
         </div>
     </div>
 </div>
+    <!-- Top Performing Content -->
+    <div class="col-12 mb-4 mt-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Top Performing Content</h5>
+                <div class="btn-group">
+                    <button type="button" class="btn btn-sm btn-outline-primary active" id="btnAll">All Platforms</button>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="btnX">X</button>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="btnLinkedIn">LinkedIn</button>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if top_content %}
+                <div class="table-responsive">
+                    <table class="table table-hover" id="topContentTable">
+                        <thead>
+                            <tr>
+                                <th>Platform</th>
+                                <th>Content</th>
+                                <th class="text-center">Engagement</th>
+                                <th class="text-center">Posted</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for post in top_content %}
+                            <tr class="post-row" data-platform="{{ post.platform }}">
+                                <td class="align-middle">
+                                    <div class="d-flex align-items-center">
+                                        {% if post.platform == 'X' %}
+                                            <i class="bi bi-twitter text-primary me-2 fs-5"></i>
+                                        {% elif post.platform == 'LinkedIn' %}
+                                            <i class="bi bi-linkedin text-primary me-2 fs-5"></i>
+                                        {% elif post.platform == 'Facebook' %}
+                                            <i class="bi bi-facebook text-primary me-2 fs-5"></i>
+                                        {% elif post.platform == 'Instagram' %}
+                                            <i class="bi bi-instagram text-danger me-2 fs-5"></i>
+                                        {% else %}
+                                            <i class="bi bi-globe text-secondary me-2 fs-5"></i>
+                                        {% endif %}
+                                        <span>{{ post.account }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="text-truncate" style="max-width: 300px;">{{ post.content }}</div>
+                                </td>
+                                <td class="align-middle text-center">
+                                    <div class="d-flex justify-content-center">
+                                        <div class="me-3" title="Likes">
+                                            <i class="bi bi-heart-fill text-danger me-1"></i>
+                                            <span>{{ post.likes }}</span>
+                                        </div>
+                                        <div class="me-3" title="Comments">
+                                            <i class="bi bi-chat-fill text-primary me-1"></i>
+                                            <span>{{ post.comments }}</span>
+                                        </div>
+                                        <div title="Shares">
+                                            <i class="bi bi-share-fill text-success me-1"></i>
+                                            <span>{{ post.shares }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="mt-2">
+                                        <div class="progress" style="height: 4px;">
+                                            <div class="progress-bar bg-primary" role="progressbar" style="width: {{ post.engagement_rate * 5 }}%;" aria-valuenow="{{ post.engagement_rate }}" aria-valuemin="0" aria-valuemax="100"></div>
+                                        </div>
+                                        <small class="text-muted">{{ post.engagement_rate }}% engagement</small>
+                                    </div>
+                                </td>
+                                <td class="align-middle text-center">
+                                    <small class="text-muted">{{ post.posted_at.strftime('%b %d, %Y') }}</small>
+                                    <br>
+                                    <small class="text-muted">{{ post.posted_at.strftime('%I:%M %p') }}</small>
+                                </td>
+                                <td class="align-middle text-end">
+                                    <button class="btn btn-sm btn-outline-primary view-insights" data-post-id="{{ post.post_id }}">
+                                        <i class="bi bi-graph-up me-1"></i> Insights
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    No performance data available yet. As your social media posts receive engagement, your top performing content will appear here.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Engagement Trend Analysis -->
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Engagement Trend Analysis</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="engagementTrendChart" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -370,5 +475,115 @@
             });
         }, 100);
     });
+    
+    // Platform filtering for top content
+    document.addEventListener('DOMContentLoaded', function() {
+        const btnAll = document.getElementById('btnAll');
+        const btnX = document.getElementById('btnX');
+        const btnLinkedIn = document.getElementById('btnLinkedIn');
+        
+        if (btnAll && btnX && btnLinkedIn) {
+            const postRows = document.querySelectorAll('.post-row');
+            
+            btnAll.addEventListener('click', function() {
+                setActiveButton(btnAll);
+                postRows.forEach(row => {
+                    row.style.display = '';
+                });
+            });
+            
+            btnX.addEventListener('click', function() {
+                setActiveButton(btnX);
+                postRows.forEach(row => {
+                    if (row.getAttribute('data-platform') === 'X') {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            });
+            
+            btnLinkedIn.addEventListener('click', function() {
+                setActiveButton(btnLinkedIn);
+                postRows.forEach(row => {
+                    if (row.getAttribute('data-platform') === 'LinkedIn') {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            });
+            
+            function setActiveButton(activeBtn) {
+                [btnAll, btnX, btnLinkedIn].forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                activeBtn.classList.add('active');
+            }
+        }
+        
+        // Setup insight modal buttons
+        const insightButtons = document.querySelectorAll('.view-insights');
+        insightButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const postId = this.getAttribute('data-post-id');
+                alert('Detailed insights for post ' + postId + ' will be available in the next update.');
+            });
+        });
+    });
+    
+    // Engagement Trend Chart
+    var ctxTrend = document.getElementById('engagementTrendChart');
+    if (ctxTrend) {
+        new Chart(ctxTrend, {
+            type: 'line',
+            data: {
+                labels: ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'],
+                datasets: [{
+                    label: 'Engagement Rate',
+                    data: [2.1, 1.8, 3.4, 2.8, 4.2, 3.9, 5.1],
+                    borderColor: 'rgb(54, 162, 235)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                },
+                {
+                    label: 'Click-through Rate',
+                    data: [1.2, 0.9, 1.7, 2.3, 2.8, 2.5, 3.1],
+                    borderColor: 'rgb(255, 99, 132)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Percentage (%)'  
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Time Period'
+                        }
+                    }
+                }
+            }
+        });
+    }
 </script>
 {% endblock %}

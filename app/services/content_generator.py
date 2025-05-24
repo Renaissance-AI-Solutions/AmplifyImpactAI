@@ -10,6 +10,10 @@ from app import db
 
 logger = logging.getLogger(__name__)
 
+# Constants for API endpoints
+OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
+GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/{}:generateContent"
+
 @dataclass
 class GenerationConfig:
     """Configuration for content generation."""
@@ -25,26 +29,43 @@ class ContentGenerator:
     """Service for generating content using LLM APIs."""
     
     def __init__(self):
-        self.api_key = None
+        self.openai_api_key = None
+        self.gemini_api_key = None
         self.default_config = GenerationConfig()
-        self.base_url = "https://api.openai.com/v1/chat/completions"
         self.headers = {
             "Content-Type": "application/json"
         }
         logger.info("ContentGenerator initialized")
         
-    def _get_api_key(self, portal_user_id: Optional[int] = None) -> Optional[str]:
-        """Get the API key for the user or from environment."""
+    def _get_api_key(self, portal_user_id: Optional[int] = None, provider: str = 'openai') -> Optional[str]:
+        """Get the API key for the specified provider (openai or gemini).
+        
+        Args:
+            portal_user_id: Optional user ID to retrieve their saved API key
+            provider: The API provider ('openai' or 'gemini')
+            
+        Returns:
+            The API key as a string, or None if not found
+        """
         # First try to get from user's saved API keys
         if portal_user_id:
             api_key_record = db.session.scalar(
                 db.select(ApiKey).filter_by(portal_user_id=portal_user_id)
             )
-            if api_key_record and api_key_record.openai_api_key:
-                return api_key_record.openai_api_key
+            if api_key_record:
+                if provider == 'openai' and api_key_record.openai_api_key:
+                    return api_key_record.openai_api_key
+                # Note: Add gemini_api_key to ApiKey model if not already present
+                elif provider == 'gemini' and hasattr(api_key_record, 'gemini_api_key') and api_key_record.gemini_api_key:
+                    return api_key_record.gemini_api_key
                 
         # Fall back to application config/environment
-        return current_app.config.get('OPENAI_API_KEY') or os.environ.get('OPENAI_API_KEY')
+        if provider == 'openai':
+            return current_app.config.get('OPENAI_API_KEY') or os.environ.get('OPENAI_API_KEY')
+        elif provider == 'gemini':
+            return current_app.config.get('GEMINI_API_KEY') or os.environ.get('GEMINI_API_KEY')
+        
+        return None
     
     def _format_system_prompt(self, tone: str, style: str, platform: str) -> str:
         """Format the system prompt based on content parameters."""
@@ -100,95 +121,160 @@ class ContentGenerator:
             content_context: Dictionary containing context for generation
                 Required keys:
                 - topic: Main topic or subject
-                - key_points: List of key points or facts
-                - platform: Target social media platform
-                - tone: Desired tone of voice
-                - style: Content style
+                - platform: Target platform (twitter, linkedin, facebook, instagram)
+                - tone: Content tone (informative, friendly, formal, urgent, inspirational, humorous)
+                - style: Content style (concise, detailed, question, story)
                 Optional keys:
+                - document_context: List of text chunks from knowledge base
                 - max_length: Maximum content length
-                - hashtags: List of relevant hashtags
-                - call_to_action: Specific CTA to include
-            portal_user_id: User ID to retrieve API key
-            config: Optional custom generation configuration
-            
+                - include_hashtags: Whether to include hashtags
+            portal_user_id: User ID for API key lookup
+            config: Optional configuration for generation
+        
         Returns:
             Generated content as string
         """
         try:
-            # Get API key
-            api_key = self._get_api_key(portal_user_id)
-            if not api_key:
-                logger.error("No API key available for content generation")
-                return "Error: No API key available. Please add an OpenAI API key in your account settings."
-            
-            # Set up headers with API key
-            headers = self.headers.copy()
-            headers["Authorization"] = f"Bearer {api_key}"
-            
             # Use default config if none provided
             if not config:
                 config = self.default_config
-                
-            # Extract context variables
-            topic = content_context.get("topic", "")
-            key_points = content_context.get("key_points", [])
-            platform = content_context.get("platform", "twitter")
-            tone = content_context.get("tone", "informative")
-            style = content_context.get("style", "concise")
-            max_length = content_context.get("max_length", 280)
-            hashtags = content_context.get("hashtags", [])
-            call_to_action = content_context.get("call_to_action", "")
             
-            # Format system prompt
-            system_prompt = self._format_system_prompt(tone, style, platform)
+            # Determine if we're using Gemini or OpenAI based on the model name
+            is_gemini = config.model.startswith('gemini')
             
-            # Format user prompt
-            user_prompt = f"Create a social media post about: {topic}\n\n"
+            # Get the appropriate API key
+            provider = 'gemini' if is_gemini else 'openai'
+            api_key = self._get_api_key(portal_user_id, provider)
             
-            if key_points:
-                user_prompt += "Key points to include:\n"
-                for point in key_points[:3]:  # Limit to top 3 points
-                    user_prompt += f"- {point}\n"
-                    
-            user_prompt += f"\nMaximum length: {max_length} characters\n"
+            if not api_key:
+                logger.error(f"No {provider} API key available for content generation")
+                return f"Error: No {provider.upper()} API key available. Please add a {provider.upper()} API key in your account settings."
             
-            if hashtags:
-                user_prompt += f"Consider using these hashtags if relevant: {', '.join(hashtags)}\n"
-                
-            if call_to_action:
-                user_prompt += f"Include this call to action: {call_to_action}\n"
-                
-            # Prepare the API request
-            payload = {
-                "model": config.model,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                "temperature": config.temperature,
-                "max_tokens": config.max_tokens,
-                "top_p": config.top_p,
-                "frequency_penalty": config.frequency_penalty,
-                "presence_penalty": config.presence_penalty
-            }
-            
-            # Make the API request
-            response = requests.post(
-                self.base_url,
-                headers=headers,
-                data=json.dumps(payload),
-                timeout=30
+            # Format system prompt based on content parameters
+            system_prompt = self._format_system_prompt(
+                content_context.get('tone', 'informative'),
+                content_context.get('style', 'concise'),
+                content_context.get('platform', 'twitter')
             )
             
-            # Process the response
-            if response.status_code == 200:
-                response_json = response.json()
-                content = response_json['choices'][0]['message']['content'].strip()
-                logger.info(f"Successfully generated content for topic: {topic}")
-                return content
+            # Format user prompt
+            user_prompt = f"Generate content about {content_context['topic']}."
+            
+            # Add document context if available
+            if 'document_context' in content_context and content_context['document_context']:
+                user_prompt += "\n\nUse the following information from our knowledge base:\n\n"
+                for i, chunk in enumerate(content_context['document_context']):
+                    user_prompt += f"Document Excerpt {i+1}:\n{chunk}\n\n"
+            
+            # Add platform-specific instructions
+            platform = content_context.get('platform', 'twitter').lower()
+            max_length = content_context.get('max_length', 280)
+            
+            user_prompt += f"\nCreate content optimized for {platform}. "
+            user_prompt += f"Keep it under {max_length} characters. "
+            
+            # Add hashtag instructions if requested
+            if content_context.get('include_hashtags', True):
+                user_prompt += "Include 1-3 relevant hashtags. "
+            
+            if is_gemini:
+                # Handle Gemini API request
+                headers = {
+                    "Content-Type": "application/json"
+                }
+                
+                # Format for Gemini API
+                gemini_model = config.model.replace('gemini-', '')
+                gemini_url = GEMINI_API_URL.format(gemini_model)
+                
+                # Add API key as query parameter
+                gemini_url += f"?key={api_key}"
+                
+                # Prepare Gemini payload
+                payload = {
+                    "contents": [
+                        {
+                            "role": "user",
+                            "parts": [
+                                {"text": f"{system_prompt}\n\n{user_prompt}"}
+                            ]
+                        }
+                    ],
+                    "generationConfig": {
+                        "temperature": config.temperature,
+                        "maxOutputTokens": config.max_tokens,
+                        "topP": config.top_p
+                    }
+                }
+                
+                # Make Gemini API request
+                response = requests.post(
+                    gemini_url,
+                    headers=headers,
+                    data=json.dumps(payload),
+                    timeout=30
+                )
+                
+                # Process Gemini response
+                if response.status_code == 200:
+                    response_json = response.json()
+                    if 'candidates' in response_json and len(response_json['candidates']) > 0:
+                        content = response_json['candidates'][0]['content']['parts'][0]['text'].strip()
+                        logger.info(f"Successfully generated content using Gemini model {config.model}")
+                        return content
+                    else:
+                        logger.error(f"Unexpected Gemini response format: {response.text}")
+                        return "Error: Unexpected response format from Gemini API"
+                elif response.status_code == 429:
+                    logger.error(f"Gemini API quota exceeded: {response.text}")
+                    return "Error: Gemini API quota exceeded. Please check your billing details or try a different model."
+                else:
+                    logger.error(f"Error with Gemini API: {response.status_code}, {response.text}")
+                    return f"Error: Gemini API returned status code {response.status_code}"
             else:
-                logger.error(f"Error generating content: {response.status_code}, {response.text}")
-                return f"Error generating content: {response.status_code}"
+                # Handle OpenAI API request
+                headers = self.headers.copy()
+                headers["Authorization"] = f"Bearer {api_key}"
+                
+                # Prepare OpenAI payload
+                payload = {
+                    "model": config.model,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    "temperature": config.temperature,
+                    "max_tokens": config.max_tokens,
+                    "top_p": config.top_p,
+                    "frequency_penalty": config.frequency_penalty,
+                    "presence_penalty": config.presence_penalty
+                }
+                
+                # Make OpenAI API request
+                response = requests.post(
+                    OPENAI_API_URL,
+                    headers=headers,
+                    data=json.dumps(payload),
+                    timeout=30
+                )
+                
+                # Process OpenAI response
+                if response.status_code == 200:
+                    response_json = response.json()
+                    content = response_json['choices'][0]['message']['content'].strip()
+                    logger.info(f"Successfully generated content using OpenAI model {config.model}")
+                    return content
+                elif response.status_code == 429:
+                    error_message = response.json().get('error', {})
+                    if error_message.get('type') == 'insufficient_quota':
+                        logger.error(f"OpenAI API quota exceeded: {response.text}")
+                        return "Error: OpenAI API quota exceeded. Please check your billing details or try a different model."
+                    else:
+                        logger.error(f"Rate limit error: {response.text}")
+                        return "Error: Rate limit exceeded. Please try again in a few minutes or try a different model."
+                else:
+                    logger.error(f"Error with OpenAI API: {response.status_code}, {response.text}")
+                    return f"Error: OpenAI API returned status code {response.status_code}"
                 
         except Exception as e:
             logger.error(f"Exception in content generation: {e}", exc_info=True)

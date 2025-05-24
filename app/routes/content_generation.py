@@ -52,7 +52,8 @@ def generate():
                         'topic': form.topic.data,
                         'max_length': form.max_length.data,
                         'include_hashtags': form.include_hashtags.data,
-                        'include_emoji': form.include_emoji.data
+                        'include_emoji': form.include_emoji.data,
+                        'model': form.model.data
                     }
                     
                     # Generate content
@@ -117,6 +118,7 @@ def generate_content_api():
         max_length = data.get('max_length', 280)
         include_hashtags = data.get('include_hashtags', True)
         include_emoji = data.get('include_emoji', True)
+        model = data.get('model', 'gpt-3.5-turbo')
         
         # Validate inputs
         if not document_id:
@@ -145,6 +147,7 @@ def generate_content_api():
             max_length=max_length,
             include_hashtags=include_hashtags,
             include_emoji=include_emoji,
+            model=model,
             return_prompt=True
         )
         

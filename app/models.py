@@ -170,6 +170,7 @@ class ApiKey(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     portal_user_id = db.Column(db.Integer, db.ForeignKey('portal_user.id'), nullable=False, unique=True)
     openai_api_key = db.Column(db.String(256), nullable=True)
+    gemini_api_key = db.Column(db.String(256), nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     

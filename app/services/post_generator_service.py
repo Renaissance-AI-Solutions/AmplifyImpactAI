@@ -149,10 +149,10 @@ class PostGeneratorService:
             return ""
             
     def generate_content(
-        self, document_id: int, platform: str = 'twitter',
-        tone: str = 'informative', style: str = 'concise', topic: Optional[str] = None, max_length: int = 280,
+        self, document_id: int, platform: str = 'twitter', tone: str = 'informative', 
+        style: str = 'concise', topic: Optional[str] = None, max_length: int = 280, 
         include_hashtags: bool = True, include_emoji: bool = True, use_llm: bool = True, portal_user_id: Optional[int] = None,
-        return_prompt: bool = False
+        model: str = 'gpt-3.5-turbo', return_prompt: bool = False
     ):  # Return type can be either str or a tuple of (str, dict)
         """Generate content optimized for a specific platform with enhanced customization.
         
@@ -167,6 +167,8 @@ class PostGeneratorService:
             include_emoji: Whether to include emoji
             use_llm: Whether to use LLM for content generation (if False, falls back to template)
             portal_user_id: User ID for API key retrieval
+            model: LLM model to use (gpt-3.5-turbo, gpt-4, etc.)
+            return_prompt: Whether to return the prompt data along with content
             
         Returns:
             Generated content as string
@@ -234,16 +236,24 @@ class PostGeneratorService:
                             "suggested_carousel_slides": 3 if style == "detailed" else 1
                         }
                     
-                    # Call the LLM service
-                    llm_content = self.llm_service.generate_content(
+                    # Create config with specified model
+                    config = GenerationConfig(
+                        model=model,
+                        temperature=0.7,
+                        max_tokens=max_length * 2  # Allow more tokens for processing
+                    )
+                    
+                    # Generate content using LLM
+                    content = self.llm_service.generate_content(
                         content_context=content_context,
-                        portal_user_id=portal_user_id or (current_user.id if hasattr(current_user, 'id') else None)
+                        portal_user_id=portal_user_id,
+                        config=config
                     )
                     
                     logger.info(f"Generated content using LLM for document {document_id}")
                     if return_prompt:
-                        return llm_content, content_context
-                    return llm_content
+                        return content, content_context
+                    return content
                     
                 except Exception as llm_error:
                     logger.warning(f"LLM generation failed, falling back to template: {llm_error}")

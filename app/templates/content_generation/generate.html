@@ -2,24 +2,38 @@
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
-    <div class="mb-8">
-        <h1 class="text-3xl font-bold mb-4">Generate Content from Knowledge Base</h1>
-        <p class="text-gray-600">Create optimized content for different platforms using your knowledge documents.</p>
+    <div class="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-100 shadow-sm">
+        <h1 class="text-3xl font-bold mb-4 text-gray-800 flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mr-3 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            Generate Content from Knowledge Base
+        </h1>
+        <p class="text-gray-600 ml-11 max-w-2xl">Create optimized content for different platforms using your knowledge documents. Our AI will help you craft engaging content tailored to your audience.</p>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
         <!-- Content Generation Form -->
-        <div class="bg-white rounded-lg shadow p-6 lg:col-span-1">
-            <h2 class="text-xl font-semibold mb-4">Content Generation Form</h2>
+        <div class="bg-white rounded-lg shadow-lg p-6 lg:col-span-1 border border-gray-100 relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-indigo-600"></div>
+            <h2 class="text-xl font-semibold mb-4 flex items-center text-gray-800">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Content Generation Form
+            </h2>
             
             <form method="POST" action="{{ url_for('content_generation.generate') }}" id="contentGenerationForm">
                 {{ form.hidden_tag() }}
                 
-                <div class="mb-4">
-                    <label class="block text-sm font-medium mb-2">{{ form.document_id.label }}</label>
-                    {{ form.document_id(class="w-full p-2 border rounded" + (" border-red-500" if form.document_id.errors else "")) }}
+                <div class="mb-5">
+                    <label class="block text-sm font-medium mb-2 text-gray-700">{{ form.document_id.label }}</label>
+                    {{ form.document_id(class="w-full p-3 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" + (" border-red-500" if form.document_id.errors else "")) }}
                     {% if form.document_id.errors %}
-                        <div class="text-red-500 text-sm mt-1">{{ form.document_id.errors[0] }}</div>
+                        <div class="text-red-500 text-sm mt-1 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>{{ form.document_id.errors[0] }}</div>
                     {% endif %}
                     {% if form.document_id.choices|length <= 1 %}
                         <div class="mt-2 p-3 bg-yellow-50 text-yellow-700 rounded text-sm">
@@ -28,63 +42,96 @@
                     {% endif %}
                 </div>
                 
-                <div class="mb-4">
-                    <label class="block text-sm font-medium mb-2">{{ form.platform.label }}</label>
-                    {{ form.platform(class="w-full p-2 border rounded") }}
+                <div class="mb-5">
+                    <label class="block text-sm font-medium mb-2 text-gray-700">{{ form.platform.label }}</label>
+                    {{ form.platform(class="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200") }}
                     {% if form.platform.errors %}
-                        <div class="text-red-500 text-sm mt-1">{{ form.platform.errors[0] }}</div>
+                        <div class="text-red-500 text-sm mt-1 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>{{ form.platform.errors[0] }}</div>
                     {% endif %}
                 </div>
                 
-                <div class="mb-4">
-                    <label class="block text-sm font-medium mb-2">{{ form.tone.label }}</label>
-                    {{ form.tone(class="w-full p-2 border rounded") }}
+                <div class="mb-5">
+                    <label class="block text-sm font-medium mb-2 text-gray-700">{{ form.model.label }}</label>
+                    {{ form.model(class="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200") }}
+                    {% if form.model.errors %}
+                        <div class="text-red-500 text-sm mt-1 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>{{ form.model.errors[0] }}</div>
+                    {% endif %}
+                    <div class="text-gray-500 text-xs mt-1">Higher quality models may use more API quota</div>
+                </div>
+                
+                <div class="mb-5">
+                    <label class="block text-sm font-medium mb-2 text-gray-700">{{ form.tone.label }}</label>
+                    {{ form.tone(class="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200") }}
                     {% if form.tone.errors %}
-                        <div class="text-red-500 text-sm mt-1">{{ form.tone.errors[0] }}</div>
+                        <div class="text-red-500 text-sm mt-1 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>{{ form.tone.errors[0] }}</div>
                     {% endif %}
                 </div>
                 
-                <div class="mb-4">
-                    <label class="block text-sm font-medium mb-2">{{ form.style.label }}</label>
-                    {{ form.style(class="w-full p-2 border rounded") }}
+                <div class="mb-5">
+                    <label class="block text-sm font-medium mb-2 text-gray-700">{{ form.style.label }}</label>
+                    {{ form.style(class="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200") }}
                     {% if form.style.errors %}
-                        <div class="text-red-500 text-sm mt-1">{{ form.style.errors[0] }}</div>
+                        <div class="text-red-500 text-sm mt-1 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>{{ form.style.errors[0] }}</div>
                     {% endif %}
                 </div>
                 
-                <div class="mb-4">
-                    <label class="block text-sm font-medium mb-2">{{ form.topic.label }}</label>
+                <div class="mb-5">
+                    <label class="block text-sm font-medium mb-2 text-gray-700">{{ form.topic.label }}</label>
                     {{ form.topic(class="w-full p-2 border rounded", placeholder="e.g., marketing, leadership") }}
                     {% if form.topic.errors %}
-                        <div class="text-red-500 text-sm mt-1">{{ form.topic.errors[0] }}</div>
+                        <div class="text-red-500 text-sm mt-1 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>{{ form.topic.errors[0] }}</div>
                     {% endif %}
                 </div>
                 
-                <div class="mb-4">
-                    <label class="block text-sm font-medium mb-2">{{ form.max_length.label }}</label>
+                <div class="mb-5">
+                    <label class="block text-sm font-medium mb-2 text-gray-700">{{ form.max_length.label }}</label>
                     {{ form.max_length(class="w-full p-2 border rounded", min="10", max="3000") }}
                     <div class="text-gray-500 text-xs mt-1">Platform limits: Twitter (280), LinkedIn (3000), Facebook (2000), Instagram (2200)</div>
                     {% if form.max_length.errors %}
-                        <div class="text-red-500 text-sm mt-1">{{ form.max_length.errors[0] }}</div>
+                        <div class="text-red-500 text-sm mt-1 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>{{ form.max_length.errors[0] }}</div>
                     {% endif %}
                 </div>
                 
-                <div class="mb-4 flex space-x-4">
-                    <div>
-                        {{ form.include_hashtags(class="mr-2") }}
-                        <label for="{{ form.include_hashtags.id }}">{{ form.include_hashtags.label }}</label>
+                <div class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="flex items-center space-x-2 bg-blue-50 rounded-lg p-3 border border-blue-100 hover:bg-blue-100 transition-colors duration-150">
+                        {{ form.include_hashtags(class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded") }}
+                        <label for="{{ form.include_hashtags.id }}" class="text-sm font-medium text-gray-700 cursor-pointer select-none">{{ form.include_hashtags.label }}</label>
                     </div>
-                    <div>
-                        {{ form.include_emoji(class="mr-2") }}
-                        <label for="{{ form.include_emoji.id }}">{{ form.include_emoji.label }}</label>
+                    <div class="flex items-center space-x-2 bg-blue-50 rounded-lg p-3 border border-blue-100 hover:bg-blue-100 transition-colors duration-150">
+                        {{ form.optimize_for_engagement(class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded") }}
+                        <label for="{{ form.optimize_for_engagement.id }}" class="text-sm font-medium text-gray-700 cursor-pointer select-none">{{ form.optimize_for_engagement.label }}</label>
                     </div>
                 </div>
                 
-                <div class="mt-6 flex space-x-2">
-                    <button type="submit" name="generate_button" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                <div class="flex space-x-3">
+                    <button type="submit" name="generate_button" class="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-3 rounded-md hover:from-blue-600 hover:to-blue-700 shadow-md hover:shadow-lg transition-all duration-200 font-medium flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
                         Generate Content
                     </button>
-                    <button type="submit" name="save_button" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    <button type="submit" name="save_button" class="flex-1 bg-white text-blue-600 border border-blue-300 px-4 py-3 rounded-md hover:bg-blue-50 hover:border-blue-400 shadow-sm hover:shadow transition-all duration-200 font-medium flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                        </svg>
                         Save as Draft
                     </button>
                 </div>
@@ -92,14 +139,31 @@
         </div>
 
         <!-- Generated Content Preview -->
-        <div class="bg-white rounded-lg shadow p-6 lg:col-span-2">
-            <h2 class="text-xl font-semibold mb-4">Generated Content</h2>
+        <div class="bg-white rounded-lg shadow-lg p-6 lg:col-span-2 border border-gray-100 relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-400 to-purple-600"></div>
+            <h2 class="text-xl font-semibold mb-4 flex items-center text-gray-800">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Generated Content
+            </h2>
             
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     {% for category, message in messages %}
-                        <div class="p-4 mb-4 rounded {% if category == 'success' %}bg-green-100 text-green-700{% elif category == 'warning' %}bg-yellow-100 text-yellow-700{% elif category == 'danger' %}bg-red-100 text-red-700{% else %}bg-blue-100 text-blue-700{% endif %}">
-                            {{ message }}
+                        <div class="{{ 'bg-green-50 text-green-800 border border-green-200' if category == 'success' else 'bg-red-50 text-red-800 border border-red-200' }} p-4 mb-4 rounded-md shadow-sm flex items-start">
+                            <div class="flex-shrink-0 mr-3">
+                                {% if category == 'success' %}
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                </svg>
+                                {% else %}
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                                </svg>
+                                {% endif %}
+                            </div>
+                            <div>{{ message }}</div>
                         </div>
                     {% endfor %}
                 {% endif %}
@@ -108,24 +172,39 @@
             {% if generated_content %}
                 <div class="mb-6">
                     <div class="relative">
-                        <div id="contentPreview" class="p-4 bg-gray-50 rounded border mb-2 whitespace-pre-wrap" style="min-height: 200px;">
+                        <div id="contentPreview" class="p-6 bg-gradient-to-br from-white to-gray-50 rounded-lg border border-gray-200 mb-3 whitespace-pre-wrap shadow-inner" style="min-height: 250px;">
                             {{ generated_content }}
                         </div>
-                        <button id="copyButton" class="absolute top-2 right-2 text-gray-500 hover:text-gray-700">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
-                                <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+                        <button id="copyButton" class="absolute top-3 right-3 p-2 bg-white text-blue-600 rounded-full shadow-md hover:bg-blue-50 transition-colors duration-150 border border-blue-100" title="Copy to clipboard">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
                             </svg>
                         </button>
                     </div>
-                    <div class="text-right text-sm text-gray-500">
-                        <span id="charCount">{{ generated_content|length }}</span> characters
+                    <div class="flex justify-between items-center mb-3">
+                        <div class="text-sm font-medium text-indigo-600 flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            Generated with AI
+                        </div>
+                        <div class="text-sm text-gray-600 flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                            </svg>
+                            <span id="charCount">{{ generated_content|length }}</span> characters
+                        </div>
                     </div>
                     {% if prompt_data %}
                     <div class="mt-2">
-                        <details class="bg-gray-50 rounded border p-2">
-                            <summary class="cursor-pointer text-sm font-medium text-gray-700">View Prompt</summary>
-                            <pre id="promptPreview" class="mt-2 p-3 bg-gray-100 text-xs text-gray-800 rounded overflow-auto max-h-60">{{ prompt_data|tojson(indent=2) }}</pre>
+                        <details class="bg-gray-50 rounded-lg border border-gray-200 p-3 shadow-sm">
+                            <summary class="cursor-pointer text-sm font-medium text-gray-700 flex items-center hover:text-indigo-600">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                View Prompt Details
+                            </summary>
+                            <pre id="promptPreview" class="mt-3 p-4 bg-gray-100 text-xs text-gray-800 rounded-md overflow-auto max-h-60 border border-gray-200">{{ prompt_data|tojson(indent=2) }}</pre>
                         </details>
                     </div>
                     {% endif %}
@@ -134,36 +213,56 @@
                             {{ form.hidden_tag() }}
                             {{ form.document_id(value=form.document_id.data, type="hidden") }}
                             {{ form.platform(value=form.platform.data, type="hidden") }}
-                            {{ form.tone(value=form.tone.data, type="hidden") }}
-                            {{ form.style(value=form.style.data, type="hidden") }}
-                            {{ form.topic(value=form.topic.data, type="hidden") }}
-                            {{ form.max_length(value=form.max_length.data, type="hidden") }}
-                            {{ form.include_hashtags(checked=form.include_hashtags.data, type="hidden") }}
-                            {{ form.include_emoji(checked=form.include_emoji.data, type="hidden") }}
-                            {{ form.save_button(class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600") }}
                         </form>
-                        <button id="regenerateButton" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+                        <button id="regenerateButton" class="bg-gradient-to-r from-purple-500 to-purple-600 text-white px-4 py-2.5 rounded-md hover:from-purple-600 hover:to-purple-700 shadow-md hover:shadow-lg transition-all duration-200 font-medium flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
                             Regenerate
                         </button>
-                        <button id="copyPromptButton" class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600">
+                        <button id="copyPromptButton" class="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-2.5 rounded-md hover:from-blue-600 hover:to-blue-700 shadow-md hover:shadow-lg transition-all duration-200 font-medium flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            </svg>
                             Copy Prompt
                         </button>
                     </div>
                 </div>
             {% else %}
-                <div class="p-4 bg-gray-50 rounded border text-center text-gray-500">
-                    Generated content will appear here. Fill out the form and click "Generate Content".
+                <div class="p-8 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border border-gray-200 text-center shadow-inner">
+                    <div class="mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-700 mb-1">No Content Generated Yet</h3>
+                    <p class="text-gray-500 max-w-md mx-auto">Fill out the form on the left and click "Generate Content" to create content tailored to your selected platform.</p>
                 </div>
             {% endif %}
             
             {% if recent_drafts %}
                 <div class="mt-8">
-                    <h3 class="font-semibold mb-2">Recent Drafts</h3>
-                    <div class="space-y-2">
+                    <h3 class="font-semibold mb-3 flex items-center text-gray-800">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        Recent Drafts
+                    </h3>
+                    <div class="space-y-3">
                         {% for draft in recent_drafts %}
-                            <div class="p-3 bg-gray-50 rounded border hover:bg-gray-100">
-                                <div class="text-sm text-gray-500 mb-1">{{ draft.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
-                                <div class="truncate">{{ draft.content }}</div>
+                            <div class="p-4 bg-gradient-to-br from-white to-gray-50 rounded-lg border border-gray-200 hover:border-indigo-200 hover:shadow-md transition-all duration-200 group">
+                                <div class="flex justify-between items-center mb-2">
+                                    <div class="text-sm font-medium text-indigo-600 flex items-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                                        </svg>
+                                        Draft
+                                    </div>
+                                    <div class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                                        {{ draft.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                    </div>
+                                </div>
+                                <div class="truncate text-gray-700 group-hover:text-gray-900">{{ draft.content }}</div>
                             </div>
                         {% endfor %}
                     </div>
@@ -174,9 +273,15 @@
 </div>
 
 <!-- Success/Error Toast -->
-<div id="toast" class="fixed bottom-4 right-4 hidden">
-    <div class="px-6 py-4 rounded-lg text-white">
-        <span id="toastMessage"></span>
+<div id="toast" class="fixed bottom-4 right-4 hidden z-50 transform transition-all duration-300 ease-in-out">
+    <div class="px-6 py-4 rounded-lg shadow-lg flex items-center space-x-3 max-w-md border border-opacity-20">
+        <div id="toastIcon" class="flex-shrink-0"></div>
+        <span id="toastMessage" class="text-sm font-medium"></span>
+        <button onclick="document.getElementById('toast').classList.add('hidden')" class="ml-auto flex-shrink-0 -mr-1 text-white opacity-60 hover:opacity-100 focus:outline-none">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
     </div>
 </div>
 {% endblock %}
@@ -252,15 +357,43 @@ document.addEventListener('DOMContentLoaded', function() {
     function showToast(message, type = 'success') {
         const toast = document.getElementById('toast');
         const toastMessage = document.getElementById('toastMessage');
+        const toastIcon = document.getElementById('toastIcon');
         
-        if (toast && toastMessage) {
-            toast.classList.remove('hidden', 'bg-green-500', 'bg-red-500');
-            toast.classList.add(type === 'success' ? 'bg-green-500' : 'bg-red-500');
-            toastMessage.textContent = message;
-            
+        if (toast && toastMessage && toastIcon) {
+            // Reset classes first
             toast.classList.remove('hidden');
+            const toastDiv = toast.querySelector('div');
+            
+            // Set appropriate styling based on type
+            if (type === 'success') {
+                toastDiv.classList.remove('bg-red-500', 'border-red-600');
+                toastDiv.classList.add('bg-green-500', 'border-green-600', 'text-white');
+                toastIcon.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                    </svg>
+                `;
+            } else {
+                toastDiv.classList.remove('bg-green-500', 'border-green-600');
+                toastDiv.classList.add('bg-red-500', 'border-red-600', 'text-white');
+                toastIcon.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                    </svg>
+                `;
+            }
+            
+            // Set message and animate in
+            toastMessage.textContent = message;
+            toast.classList.add('animate-fade-in-up');
+            
+            // Auto hide after delay
             setTimeout(() => {
-                toast.classList.add('hidden');
+                toast.classList.add('animate-fade-out-down');
+                setTimeout(() => {
+                    toast.classList.add('hidden');
+                    toast.classList.remove('animate-fade-in-up', 'animate-fade-out-down');
+                }, 300);
             }, 3000);
         }
     }

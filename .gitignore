@@ -31,6 +31,9 @@ ENV/
 .env
 !.env.example  # Keep the example file
 
+# NLTK Data
+nltk_data/
+
 # Sensitive files
 *.pem
 *.key
