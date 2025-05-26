@@ -1,5 +1,205 @@
 {% extends "layouts/base.html" %}
 
+{% block styles %}
+{{ super() }}
+<style>
+/* Custom icon sizing to replace Tailwind classes */
+.h-4 { height: 1rem; }
+.w-4 { width: 1rem; }
+.h-5 { height: 1.25rem; }
+.w-5 { width: 1.25rem; }
+.h-8 { height: 2rem; }
+.w-8 { width: 2rem; }
+.h-12 { height: 3rem; }
+.w-12 { width: 3rem; }
+
+/* Custom spacing classes */
+.mr-1 { margin-right: 0.25rem; }
+.mr-2 { margin-right: 0.5rem; }
+.mr-3 { margin-right: 0.75rem; }
+.mb-4 { margin-bottom: 1rem; }
+.mb-6 { margin-bottom: 1.5rem; }
+.mb-8 { margin-bottom: 2rem; }
+.mt-4 { margin-top: 1rem; }
+.mt-8 { margin-top: 2rem; }
+.ml-11 { margin-left: 2.75rem; }
+
+/* Custom padding classes */
+.p-3 { padding: 0.75rem; }
+.p-4 { padding: 1rem; }
+.p-6 { padding: 1.5rem; }
+.p-8 { padding: 2rem; }
+.px-4 { padding-left: 1rem; padding-right: 1rem; }
+.py-8 { padding-top: 2rem; padding-bottom: 2rem; }
+
+/* Custom text and color classes */
+.text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+.text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+.text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+.text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+.text-xs { font-size: 0.75rem; line-height: 1rem; }
+.font-bold { font-weight: 700; }
+.font-semibold { font-weight: 600; }
+.font-medium { font-weight: 500; }
+
+/* Custom layout classes */
+.flex { display: flex; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.space-x-2 > * + * { margin-left: 0.5rem; }
+.space-x-3 > * + * { margin-left: 0.75rem; }
+.space-y-3 > * + * { margin-top: 0.75rem; }
+.grid { display: grid; }
+.grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+.gap-4 { gap: 1rem; }
+.gap-8 { gap: 2rem; }
+
+/* Custom background and border classes */
+.bg-white { background-color: #ffffff; }
+.bg-blue-50 { background-color: #eff6ff; }
+.bg-gray-50 { background-color: #f9fafb; }
+.bg-gray-100 { background-color: #f3f4f6; }
+.bg-green-50 { background-color: #f0fdf4; }
+.bg-red-50 { background-color: #fef2f2; }
+.bg-yellow-50 { background-color: #fefce8; }
+.border { border-width: 1px; }
+.border-blue-100 { border-color: #dbeafe; }
+.border-gray-200 { border-color: #e5e7eb; }
+.border-gray-300 { border-color: #d1d5db; }
+.border-green-200 { border-color: #bbf7d0; }
+.border-red-200 { border-color: #fecaca; }
+.rounded { border-radius: 0.25rem; }
+.rounded-lg { border-radius: 0.5rem; }
+.rounded-md { border-radius: 0.375rem; }
+.rounded-full { border-radius: 9999px; }
+.shadow-sm { box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); }
+.shadow-lg { box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.05); }
+.shadow-md { box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.06); }
+.shadow-inner { box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.05); }
+
+/* Custom text colors */
+.text-gray-400 { color: #9ca3af; }
+.text-gray-500 { color: #6b7280; }
+.text-gray-600 { color: #4b5563; }
+.text-gray-700 { color: #374151; }
+.text-gray-800 { color: #1f2937; }
+.text-blue-600 { color: #2563eb; }
+.text-blue-500 { color: #3b82f6; }
+.text-indigo-500 { color: #6366f1; }
+.text-indigo-600 { color: #4f46e5; }
+.text-green-500 { color: #10b981; }
+.text-green-800 { color: #166534; }
+.text-red-500 { color: #ef4444; }
+.text-red-800 { color: #991b1b; }
+.text-yellow-700 { color: #a16207; }
+
+/* Custom gradients */
+.bg-gradient-to-r { background-image: linear-gradient(to right, var(--tw-gradient-stops)); }
+.bg-gradient-to-br { background-image: linear-gradient(to bottom right, var(--tw-gradient-stops)); }
+.from-blue-50 { --tw-gradient-from: #eff6ff; --tw-gradient-to: rgb(239 246 255 / 0); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.to-indigo-50 { --tw-gradient-to: #eef2ff; }
+.from-white { --tw-gradient-from: #ffffff; --tw-gradient-to: rgb(255 255 255 / 0); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.to-gray-50 { --tw-gradient-to: #f9fafb; }
+.from-gray-50 { --tw-gradient-from: #f9fafb; --tw-gradient-to: rgb(249 250 251 / 0); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.to-gray-100 { --tw-gradient-to: #f3f4f6; }
+.from-blue-400 { --tw-gradient-from: #60a5fa; --tw-gradient-to: rgb(96 165 250 / 0); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.to-indigo-600 { --tw-gradient-to: #4f46e5; }
+.from-indigo-400 { --tw-gradient-from: #818cf8; --tw-gradient-to: rgb(129 140 248 / 0); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.to-purple-600 { --tw-gradient-to: #9333ea; }
+.from-blue-500 { --tw-gradient-from: #3b82f6; --tw-gradient-to: rgb(59 130 246 / 0); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.to-blue-600 { --tw-gradient-to: #2563eb; }
+.from-purple-500 { --tw-gradient-from: #a855f7; --tw-gradient-to: rgb(168 85 247 / 0); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.to-purple-600 { --tw-gradient-to: #9333ea; }
+
+/* Custom positioning */
+.relative { position: relative; }
+.absolute { position: absolute; }
+.fixed { position: fixed; }
+.top-0 { top: 0px; }
+.left-0 { left: 0px; }
+.right-3 { right: 0.75rem; }
+.top-3 { top: 0.75rem; }
+.bottom-4 { bottom: 1rem; }
+.right-4 { right: 1rem; }
+
+/* Custom sizing */
+.w-full { width: 100%; }
+.h-1 { height: 0.25rem; }
+.max-w-2xl { max-width: 42rem; }
+.max-w-md { max-width: 28rem; }
+.min-h-60 { min-height: 15rem; }
+.max-h-60 { max-height: 15rem; }
+
+/* Custom display */
+.hidden { display: none; }
+.block { display: block; }
+.overflow-hidden { overflow: hidden; }
+.overflow-auto { overflow: auto; }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Custom text properties */
+.text-center { text-align: center; }
+.whitespace-pre-wrap { white-space: pre-wrap; }
+.cursor-pointer { cursor: pointer; }
+.select-none { user-select: none; }
+
+/* Custom transitions */
+.transition-colors { transition-property: color, background-color, border-color, text-decoration-color, fill, stroke; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
+.transition-all { transition-property: all; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
+.duration-150 { transition-duration: 150ms; }
+.duration-200 { transition-duration: 200ms; }
+
+/* Hover states */
+.hover\:bg-blue-50:hover { background-color: #eff6ff; }
+.hover\:bg-blue-100:hover { background-color: #dbeafe; }
+.hover\:border-indigo-200:hover { border-color: #c7d2fe; }
+.hover\:shadow-md:hover { box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.06); }
+.hover\:shadow-lg:hover { box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.05); }
+.hover\:text-indigo-600:hover { color: #4f46e5; }
+.hover\:text-gray-900:hover { color: #111827; }
+.hover\:from-blue-600:hover { --tw-gradient-from: #2563eb; --tw-gradient-to: rgb(37 99 235 / 0); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.hover\:to-blue-700:hover { --tw-gradient-to: #1d4ed8; }
+.hover\:from-purple-600:hover { --tw-gradient-from: #9333ea; --tw-gradient-to: rgb(147 51 234 / 0); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.hover\:to-purple-700:hover { --tw-gradient-to: #7c3aed; }
+
+/* Focus states */
+.focus\:outline-none:focus { outline: 2px solid transparent; outline-offset: 2px; }
+.focus\:ring-2:focus { --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color); --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color); box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000); }
+.focus\:ring-blue-500:focus { --tw-ring-opacity: 1; --tw-ring-color: rgb(59 130 246 / var(--tw-ring-opacity)); }
+.focus\:border-blue-500:focus { --tw-border-opacity: 1; border-color: rgb(59 130 246 / var(--tw-border-opacity)); }
+
+/* Responsive classes */
+@media (min-width: 768px) {
+  .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1024px) {
+  .lg\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .lg\:col-span-1 { grid-column: span 1 / span 1; }
+  .lg\:col-span-2 { grid-column: span 2 / span 2; }
+}
+
+/* Z-index */
+.z-50 { z-index: 50; }
+
+/* Flex properties */
+.flex-1 { flex: 1 1 0%; }
+.flex-shrink-0 { flex-shrink: 0; }
+
+/* Transform */
+.transform { transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y)); }
+
+/* Container */
+.container { width: 100%; }
+@media (min-width: 640px) { .container { max-width: 640px; } }
+@media (min-width: 768px) { .container { max-width: 768px; } }
+@media (min-width: 1024px) { .container { max-width: 1024px; } }
+@media (min-width: 1280px) { .container { max-width: 1280px; } }
+@media (min-width: 1536px) { .container { max-width: 1536px; } }
+.mx-auto { margin-left: auto; margin-right: auto; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <div class="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-100 shadow-sm">
@@ -22,10 +222,10 @@
                 </svg>
                 Content Generation Form
             </h2>
-            
+
             <form method="POST" action="{{ url_for('content_generation.generate') }}" id="contentGenerationForm">
                 {{ form.hidden_tag() }}
-                
+
                 <div class="mb-5">
                     <label class="block text-sm font-medium mb-2 text-gray-700">{{ form.document_id.label }}</label>
                     {{ form.document_id(class="w-full p-3 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" + (" border-red-500" if form.document_id.errors else "")) }}
@@ -41,7 +241,7 @@
                         </div>
                     {% endif %}
                 </div>
-                
+
                 <div class="mb-5">
                     <label class="block text-sm font-medium mb-2 text-gray-700">{{ form.platform.label }}</label>
                     {{ form.platform(class="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200") }}
@@ -52,7 +252,7 @@
                         </svg>{{ form.platform.errors[0] }}</div>
                     {% endif %}
                 </div>
-                
+
                 <div class="mb-5">
                     <label class="block text-sm font-medium mb-2 text-gray-700">{{ form.model.label }}</label>
                     {{ form.model(class="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200") }}
@@ -64,7 +264,7 @@
                     {% endif %}
                     <div class="text-gray-500 text-xs mt-1">Higher quality models may use more API quota</div>
                 </div>
-                
+
                 <div class="mb-5">
                     <label class="block text-sm font-medium mb-2 text-gray-700">{{ form.tone.label }}</label>
                     {{ form.tone(class="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200") }}
@@ -75,7 +275,7 @@
                         </svg>{{ form.tone.errors[0] }}</div>
                     {% endif %}
                 </div>
-                
+
                 <div class="mb-5">
                     <label class="block text-sm font-medium mb-2 text-gray-700">{{ form.style.label }}</label>
                     {{ form.style(class="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200") }}
@@ -86,7 +286,7 @@
                         </svg>{{ form.style.errors[0] }}</div>
                     {% endif %}
                 </div>
-                
+
                 <div class="mb-5">
                     <label class="block text-sm font-medium mb-2 text-gray-700">{{ form.topic.label }}</label>
                     {{ form.topic(class="w-full p-2 border rounded", placeholder="e.g., marketing, leadership") }}
@@ -97,7 +297,7 @@
                         </svg>{{ form.topic.errors[0] }}</div>
                     {% endif %}
                 </div>
-                
+
                 <div class="mb-5">
                     <label class="block text-sm font-medium mb-2 text-gray-700">{{ form.max_length.label }}</label>
                     {{ form.max_length(class="w-full p-2 border rounded", min="10", max="3000") }}
@@ -109,7 +309,7 @@
                         </svg>{{ form.max_length.errors[0] }}</div>
                     {% endif %}
                 </div>
-                
+
                 <div class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="flex items-center space-x-2 bg-blue-50 rounded-lg p-3 border border-blue-100 hover:bg-blue-100 transition-colors duration-150">
                         {{ form.include_hashtags(class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded") }}
@@ -120,7 +320,7 @@
                         <label for="{{ form.optimize_for_engagement.id }}" class="text-sm font-medium text-gray-700 cursor-pointer select-none">{{ form.optimize_for_engagement.label }}</label>
                     </div>
                 </div>
-                
+
                 <div class="flex space-x-3">
                     <button type="submit" name="generate_button" class="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-3 rounded-md hover:from-blue-600 hover:to-blue-700 shadow-md hover:shadow-lg transition-all duration-200 font-medium flex items-center justify-center">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -147,7 +347,7 @@
                 </svg>
                 Generated Content
             </h2>
-            
+
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     {% for category, message in messages %}
@@ -168,7 +368,7 @@
                     {% endfor %}
                 {% endif %}
             {% endwith %}
-            
+
             {% if generated_content %}
                 <div class="mb-6">
                     <div class="relative">
@@ -231,7 +431,7 @@
             {% else %}
                 <div class="p-8 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border border-gray-200 text-center shadow-inner">
                     <div class="mb-4">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                     </div>
@@ -239,7 +439,7 @@
                     <p class="text-gray-500 max-w-md mx-auto">Fill out the form on the left and click "Generate Content" to create content tailored to your selected platform.</p>
                 </div>
             {% endif %}
-            
+
             {% if recent_drafts %}
                 <div class="mt-8">
                     <h3 class="font-semibold mb-3 flex items-center text-gray-800">
@@ -306,7 +506,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
+
     // Copy prompt to clipboard functionality
     const copyPromptButton = document.getElementById('copyPromptButton');
     if (copyPromptButton) {
@@ -324,7 +524,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
+
     // Regenerate button functionality
     const regenerateButton = document.getElementById('regenerateButton');
     if (regenerateButton) {
@@ -335,7 +535,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
+
     // Character counter for max_length input
     const maxLengthInput = document.getElementById('max_length');
     const platformSelect = document.getElementById('platform');
@@ -352,18 +552,18 @@ document.addEventListener('DOMContentLoaded', function() {
             maxLengthInput.value = limit;
         });
     }
-    
+
     // Show toast messages
     function showToast(message, type = 'success') {
         const toast = document.getElementById('toast');
         const toastMessage = document.getElementById('toastMessage');
         const toastIcon = document.getElementById('toastIcon');
-        
+
         if (toast && toastMessage && toastIcon) {
             // Reset classes first
             toast.classList.remove('hidden');
             const toastDiv = toast.querySelector('div');
-            
+
             // Set appropriate styling based on type
             if (type === 'success') {
                 toastDiv.classList.remove('bg-red-500', 'border-red-600');
@@ -382,11 +582,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     </svg>
                 `;
             }
-            
+
             // Set message and animate in
             toastMessage.textContent = message;
             toast.classList.add('animate-fade-in-up');
-            
+
             // Auto hide after delay
             setTimeout(() => {
                 toast.classList.add('animate-fade-out-down');

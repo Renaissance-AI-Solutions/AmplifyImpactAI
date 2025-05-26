@@ -60,7 +60,7 @@ class ManagedAccount(db.Model):
     @property
     def refresh_token(self):
         return decrypt_token(self.encrypted_refresh_token) if self.encrypted_refresh_token else None
-    
+
     def __repr__(self):
         return f'<ManagedAccount {self.platform_name}:{self.account_display_name}>'
 
@@ -77,7 +77,7 @@ class KnowledgeDocument(db.Model):
     summary = db.Column(db.Text, nullable=True)  # Add summary field for document summary
     embedding_model_name = db.Column(db.String(100), nullable=True)  # Track which model generated the embeddings
     chunk_count = db.Column(db.Integer, default=0)  # Track number of chunks
-    
+
     portal_user = db.relationship('PortalUser', backref=db.backref('knowledge_documents', lazy=True))
     chunks = db.relationship('KnowledgeChunk', backref='document', lazy='dynamic', cascade="all, delete-orphan")
 
@@ -102,14 +102,14 @@ class ScheduledPost(db.Model):
     portal_user_id = db.Column(db.Integer, db.ForeignKey('portal_user.id'), nullable=False, index=True)
     managed_account_id = db.Column(db.Integer, db.ForeignKey('managed_account.id'), nullable=False)
     content = db.Column(db.Text, nullable=False)
-    media_urls = db.Column(db.String(1024)) 
+    media_urls = db.Column(db.String(1024))
     scheduled_time = db.Column(db.DateTime, nullable=False, index=True)
     status = db.Column(db.String(50), default="pending")
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     posted_at = db.Column(db.DateTime, nullable=True)
     error_message = db.Column(db.Text, nullable=True)
     platform_post_id = db.Column(db.String(255), nullable=True)
-    
+
     # Fields for recurring posts
     is_from_recurring_schedule = db.Column(db.Boolean, default=False)
     recurring_schedule_id = db.Column(db.Integer, db.ForeignKey('recurring_post_schedule.id'), nullable=True)
@@ -122,7 +122,7 @@ class ScheduledPost(db.Model):
 class GeneratedComment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     managed_account_id_to_post_from = db.Column(db.Integer, db.ForeignKey('managed_account.id'), nullable=False)
-    target_platform = db.Column(db.String(50)) 
+    target_platform = db.Column(db.String(50))
     target_post_id_on_platform = db.Column(db.String(255), nullable=False)
     target_post_content = db.Column(db.Text)
     target_post_author = db.Column(db.String(255))
@@ -144,11 +144,11 @@ class ActionLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     portal_user_id = db.Column(db.Integer, db.ForeignKey('portal_user.id'))
     managed_account_id = db.Column(db.Integer, db.ForeignKey('managed_account.id'), nullable=True)
-    action_type = db.Column(db.String(100), nullable=False) 
+    action_type = db.Column(db.String(100), nullable=False)
     status = db.Column(db.String(50), nullable=False)
     details = db.Column(db.Text)
     timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
-    
+
     portal_user = db.relationship('PortalUser', backref=db.backref('action_logs', lazy=True))
 
     def __repr__(self):
@@ -171,11 +171,12 @@ class ApiKey(db.Model):
     portal_user_id = db.Column(db.Integer, db.ForeignKey('portal_user.id'), nullable=False, unique=True)
     openai_api_key = db.Column(db.String(256), nullable=True)
     gemini_api_key = db.Column(db.String(256), nullable=True)
+    preferred_ai_model = db.Column(db.String(50), default='gpt-3.5-turbo', nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    
+
     portal_user = db.relationship('PortalUser', backref=db.backref('api_keys', lazy=True, uselist=False))
-    
+
     def __repr__(self):
         return f'<ApiKey for user {self.portal_user_id}>'
 
@@ -186,23 +187,23 @@ class RecurringPostSchedule(db.Model):
     name = db.Column(db.String(255), nullable=False)
     content_template = db.Column(db.Text, nullable=False)
     media_urls = db.Column(db.String(1024), nullable=True)
-    
+
     # Scheduling information
     frequency = db.Column(db.String(50), nullable=False)  # 'daily', 'weekly', 'monthly'
     time_of_day = db.Column(db.Time, nullable=False)  # Time of day to post
     day_of_week = db.Column(db.Integer, nullable=True)  # 0-6 (Monday-Sunday) for weekly posts
     day_of_month = db.Column(db.Integer, nullable=True)  # 1-31 for monthly posts
-    
+
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     last_run_at = db.Column(db.DateTime, nullable=True)
-    
+
     portal_user = db.relationship('PortalUser', backref=db.backref('recurring_post_schedules', lazy=True))
     managed_account = db.relationship('ManagedAccount', backref=db.backref('recurring_post_schedules', lazy=True))
-    scheduled_posts = db.relationship('ScheduledPost', backref='recurring_schedule', lazy='dynamic', 
+    scheduled_posts = db.relationship('ScheduledPost', backref='recurring_schedule', lazy='dynamic',
                                     primaryjoin="and_(ScheduledPost.recurring_schedule_id==RecurringPostSchedule.id, "
                                                 "ScheduledPost.is_from_recurring_schedule==True)")
-    
+
     def __repr__(self):
         return f'<RecurringPostSchedule {self.name} ({self.frequency}) for account {self.managed_account_id}>'

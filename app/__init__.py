@@ -27,28 +27,27 @@ login_manager.login_message_category = 'info'
 def create_app(config_name=None):
     print("\n=== APP INITIALIZATION STARTED ===")
     print(f"--- Current working directory: {os.getcwd()}")
-    
+
     # Import services
     try:
-        from app.services.scheduler_service import SchedulerService
+        from app.services.scheduler_service import scheduler_service
         from app.services.embedding_service import initialize_embedding_service
         from app.services.knowledge_base_manager import initialize_kb_components, save_kb_components
         print("--- Successfully imported service modules")
     except ImportError as e:
         print(f"--- CRITICAL: Failed to import service modules: {e}")
         raise
-    
+
     import atexit
-    
-    # Initialize scheduler service
-    print("--- Initializing SchedulerService...")
-    scheduler_service = SchedulerService()
-    
+
+    # Use the global scheduler service instance
+    print("--- Using global SchedulerService instance...")
+
     # Determine config
     if config_name is None:
         config_name = get_config_name()
     print(f"--- Using config: {config_name}")
-    
+
     # Create Flask app
     print("--- Creating Flask application...")
     app = Flask(__name__, instance_relative_config=True)
@@ -56,7 +55,7 @@ def create_app(config_name=None):
     app.config.from_object(config_by_name[config_name])
     app.scheduler_service = scheduler_service  # Attach to app for global access
     print("--- Flask app created and configured")
-    
+
     try:
         os.makedirs(app.instance_path, exist_ok=True)
         os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -78,7 +77,7 @@ def create_app(config_name=None):
     except Exception as e:
         print(f"--- ERROR initializing Flask extensions: {e}")
         raise
-    
+
     # Initialize limiter with app
     limiter.init_app(app)
 
@@ -86,36 +85,36 @@ def create_app(config_name=None):
     with app.app_context():
         # Initialize services with debug info
         print("\n--- Initializing application services...")
-        
+
         # Import the embedding service module
         from app.services import embedding_service as es_module
-        
+
         try:
             print("\n--- [1] Before initialize_embedding_service() ---")
             print(f"--- Global embedding_service_instance ID: {id(es_module.embedding_service_instance) if es_module.embedding_service_instance is not None else 'None'}")
-            
+
             print("--- Initializing Embedding Service...")
             initialize_embedding_service(app)
-            
+
             print("\n--- [2] After initialize_embedding_service() ---")
             print(f"--- Global embedding_service_instance ID: {id(es_module.embedding_service_instance) if es_module.embedding_service_instance is not None else 'None'}")
             if es_module.embedding_service_instance is not None:
                 print(f"--- Client loaded: {hasattr(es_module.embedding_service_instance, 'client') and es_module.embedding_service_instance.client is not None}")
                 print(f"--- Model: {getattr(es_module.embedding_service_instance, 'model_name', 'unknown')}")
-            
+
             print("\n--- [3] Before initialize_kb_components() ---")
             print("--- Initializing Knowledge Base components...")
-            
+
             with app.app_context():
                 initialize_kb_components(app)
-                
+
             print("\n--- [4] After initialize_kb_components() ---")
             print("--- Knowledge Base initialization complete")
-                
+
             print("--- Registering cleanup handlers...")
             atexit.register(save_kb_components)
             print("--- Cleanup handlers registered")
-            
+
             print("\n=== ALL SERVICES INITIALIZED SUCCESSFULLY ===\n")
         except Exception as e:
             print(f"\n!!! CRITICAL ERROR DURING SERVICE INITIALIZATION: {e}")
@@ -144,7 +143,7 @@ def create_app(config_name=None):
 
     from app.routes.knowledge_base import kb_bp
     app.register_blueprint(kb_bp, url_prefix='/knowledge-base')
-    
+
     from app.routes.content_studio import content_studio_bp
     app.register_blueprint(content_studio_bp, url_prefix='/content-studio')
 
@@ -176,12 +175,12 @@ def create_app(config_name=None):
     def inject_current_time():
         from datetime import datetime, timezone
         return {'current_time_utc': datetime.now(timezone.utc)}
-        
+
     @app.before_request
     def log_request_info():
         if request:
             if app.debug:
                 app.logger.debug('Headers: %s', request.headers)
                 app.logger.debug('Body: %s', request.get_data())
-    
+
     return app

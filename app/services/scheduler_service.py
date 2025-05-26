@@ -183,7 +183,7 @@ class SchedulerService:
 
                         # Generate comment using AI (implementation would depend on your AI service)
                         comment_text = self._generate_comment_for_post(post)
-                        
+
                         # Create GeneratedComment record
                         comment = GeneratedComment(
                             managed_account_id_to_post_from=posting_account.id,
@@ -221,7 +221,7 @@ class SchedulerService:
         ).all()
         for setting in settings:
             self.schedule_comment_discovery(setting.id)
-            
+
     def schedule_recurring_post(self, schedule_id: int):
         """Schedule a recurring post based on its frequency settings."""
         with self.app.app_context():
@@ -231,26 +231,26 @@ class SchedulerService:
                 return
 
             job_id = f'recurring_{schedule_id}'
-            
+
             # Create the appropriate trigger based on frequency
             if schedule.frequency == 'daily':
                 trigger = CronTrigger(hour=schedule.time_of_day.hour, minute=schedule.time_of_day.minute)
             elif schedule.frequency == 'weekly':
                 trigger = CronTrigger(
                     day_of_week=schedule.day_of_week,
-                    hour=schedule.time_of_day.hour, 
+                    hour=schedule.time_of_day.hour,
                     minute=schedule.time_of_day.minute
                 )
             elif schedule.frequency == 'monthly':
                 trigger = CronTrigger(
                     day=schedule.day_of_month,
-                    hour=schedule.time_of_day.hour, 
+                    hour=schedule.time_of_day.hour,
                     minute=schedule.time_of_day.minute
                 )
             else:
                 logger.error(f"Unknown frequency {schedule.frequency} for recurring schedule {schedule_id}")
                 return
-                
+
             self.scheduler.add_job(
                 self._create_post_from_recurring_schedule,
                 trigger,
@@ -259,7 +259,7 @@ class SchedulerService:
                 replace_existing=True
             )
             logger.info(f"Scheduled recurring post {schedule_id} with frequency {schedule.frequency}")
-            
+
     def _create_post_from_recurring_schedule(self, schedule_id: int):
         """Create a new scheduled post from a recurring schedule template."""
         with self.app.app_context():
@@ -267,16 +267,16 @@ class SchedulerService:
             if not schedule or not schedule.is_active:
                 logger.warning(f"Cannot create post from recurring schedule {schedule_id}: Schedule not found or not active.")
                 return
-                
+
             try:
                 # Calculate the next scheduled time
                 now = datetime.now(timezone.utc)
                 scheduled_time = now.replace(hour=schedule.time_of_day.hour, minute=schedule.time_of_day.minute, second=0, microsecond=0)
-                
+
                 # If the time has already passed today, schedule for tomorrow
                 if scheduled_time <= now:
                     scheduled_time = scheduled_time + timedelta(days=1)
-                    
+
                 # Create a new scheduled post based on the template
                 post = self.ScheduledPost(
                     portal_user_id=schedule.portal_user_id,
@@ -288,22 +288,22 @@ class SchedulerService:
                     is_from_recurring_schedule=True,
                     recurring_schedule_id=schedule.id
                 )
-                
+
                 self.db.session.add(post)
                 self.db.session.commit()
-                
+
                 # Schedule the new post
                 self.schedule_post(post.id)
-                
+
                 # Update last_run timestamp
                 schedule.last_run_at = now
                 self.db.session.commit()
-                
+
                 logger.info(f"Created new post {post.id} from recurring schedule {schedule_id}")
-                
+
             except Exception as e:
                 logger.error(f"Error creating post from recurring schedule {schedule_id}: {e}")
-                
+
     def _add_existing_recurring_schedules(self):
         """Add existing active recurring post schedules to the scheduler."""
         schedules = self.db.session.scalars(
@@ -311,7 +311,7 @@ class SchedulerService:
         ).all()
         for schedule in schedules:
             self.schedule_recurring_post(schedule.id)
-            
+
     def update_recurring_schedule(self, schedule_id: int):
         """Update an existing recurring schedule in the scheduler."""
         # First remove any existing job
@@ -321,9 +321,13 @@ class SchedulerService:
         except Exception:
             # Job might not exist, which is fine
             pass
-            
+
         # Then reschedule if active
         with self.app.app_context():
             schedule = self.db.session.get(self.RecurringPostSchedule, schedule_id)
             if schedule and schedule.is_active:
                 self.schedule_recurring_post(schedule_id)
+
+
+# Global instance for easy importing
+scheduler_service = SchedulerService()

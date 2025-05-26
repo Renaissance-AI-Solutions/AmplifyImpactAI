@@ -43,12 +43,12 @@
 
                             <form method="POST" action="{{ url_for('main_bp.settings') }}">
                                 {{ api_key_form.hidden_tag() }}
-                                
+
                                 <div class="mb-3">
                                     <label for="openai_api_key" class="form-label">
                                         {{ api_key_form.openai_api_key.label }}
-                                        <i class="bi bi-info-circle text-muted" data-bs-toggle="tooltip" 
-                                           title="Required for AI content generation. Get your key from OpenAI."></i>
+                                        <i class="bi bi-info-circle text-muted" data-bs-toggle="tooltip"
+                                           title="Required for OpenAI models (GPT-3.5, GPT-4). Get your key from OpenAI."></i>
                                     </label>
                                     {{ api_key_form.openai_api_key(class="form-control", id="openai_api_key") }}
                                     <div class="form-text">
@@ -62,7 +62,45 @@
                                         </div>
                                     {% endif %}
                                 </div>
-                                
+
+                                <div class="mb-3">
+                                    <label for="gemini_api_key" class="form-label">
+                                        {{ api_key_form.gemini_api_key.label }}
+                                        <i class="bi bi-info-circle text-muted" data-bs-toggle="tooltip"
+                                           title="Required for Gemini models. Get your key from Google AI Studio."></i>
+                                    </label>
+                                    {{ api_key_form.gemini_api_key(class="form-control", id="gemini_api_key") }}
+                                    <div class="form-text">
+                                        Your API key is stored securely. Leave blank to keep your current key.
+                                    </div>
+                                    {% if api_key_form.gemini_api_key.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in api_key_form.gemini_api_key.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="preferred_ai_model" class="form-label">
+                                        {{ api_key_form.preferred_ai_model.label }}
+                                        <i class="bi bi-info-circle text-muted" data-bs-toggle="tooltip"
+                                           title="Choose your preferred AI model for content generation."></i>
+                                    </label>
+                                    {{ api_key_form.preferred_ai_model(class="form-select", id="preferred_ai_model") }}
+                                    <div class="form-text">
+                                        This will be the default model used for all AI content generation.
+                                    </div>
+                                    {% if api_key_form.preferred_ai_model.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in api_key_form.preferred_ai_model.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+
                                 <div class="d-grid">
                                     {{ api_key_form.submit(class="btn btn-primary") }}
                                 </div>
@@ -79,13 +117,13 @@
                         </div>
                         <div class="card-body">
                             <p class="text-muted mb-4">
-                                Configure how Amplify Impact Pro discovers and suggests comments 
+                                Configure how Amplify Impact Pro discovers and suggests comments
                                 for relevant social media posts.
                             </p>
 
                             <form method="POST" action="{{ url_for('main_bp.settings') }}">
                                 {{ comment_settings_form.hidden_tag() }}
-                                
+
                                 <div class="mb-3">
                                     <label for="keywords" class="form-label">
                                         {{ comment_settings_form.keywords.label }}
@@ -95,7 +133,7 @@
                                         Comma-separated list of keywords or hashtags to monitor
                                     </div>
                                 </div>
-                                
+
                                 <div class="mb-3">
                                     <label for="monitored_x_accounts" class="form-label">
                                         {{ comment_settings_form.monitored_x_accounts.label }}
@@ -105,21 +143,21 @@
                                         Comma-separated list of X accounts to monitor (without the @ symbol)
                                     </div>
                                 </div>
-                                
+
                                 <div class="mb-3">
                                     <label for="default_posting_account_id" class="form-label">
                                         {{ comment_settings_form.default_posting_account_id.label }}
                                     </label>
                                     {{ comment_settings_form.default_posting_account_id(class="form-select", id="default_posting_account_id") }}
                                 </div>
-                                
+
                                 <div class="mb-3 form-check form-switch">
                                     {{ comment_settings_form.is_active(class="form-check-input", id="is_active") }}
                                     <label class="form-check-label" for="is_active">
                                         {{ comment_settings_form.is_active.label }}
                                     </label>
                                 </div>
-                                
+
                                 <div class="d-grid">
                                     {{ comment_settings_form.submit(class="btn btn-primary") }}
                                 </div>
@@ -155,14 +193,14 @@
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl);
     });
-    
+
     // Set active tab based on hash or default to API keys
     $(document).ready(function() {
         let hash = window.location.hash;
         if (hash) {
             $('.list-group-item[href="' + hash + '"]').tab('show');
         }
-        
+
         // Update URL hash when tab changes
         $('.list-group-item').on('shown.bs.tab', function (e) {
             window.location.hash = e.target.getAttribute('href');

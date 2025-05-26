@@ -9,9 +9,17 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">Knowledge Base</h5>
-                <a href="#" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
-                    <i class="fas fa-upload"></i> Upload Document
-                </a>
+                <div class="btn-group">
+                    <button class="btn btn-info btn-sm" onclick="checkKBStatus()">
+                        <i class="fas fa-info-circle"></i> Debug Status
+                    </button>
+                    <button class="btn btn-warning btn-sm" onclick="rebuildEmbeddings()">
+                        <i class="fas fa-sync"></i> Rebuild Embeddings
+                    </button>
+                    <a href="#" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                        <i class="fas fa-upload"></i> Upload Document
+                    </a>
+                </div>
 
                 <!-- Upload Modal -->
                 <div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
@@ -73,6 +81,58 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Debug Actions -->
+                <div class="row g-3 mt-3">
+                    <div class="col-md-4">
+                        <div class="card border-info">
+                            <div class="card-body text-center">
+                                <i class="fas fa-info-circle fa-2x text-info mb-3"></i>
+                                <h6 class="card-title">Debug Status</h6>
+                                <p class="card-text small">Check knowledge base status and diagnostics</p>
+                                <button class="btn btn-info btn-sm" onclick="checkKBStatus()">
+                                    <i class="fas fa-info-circle"></i> Debug Status
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card border-success">
+                            <div class="card-body text-center">
+                                <i class="fas fa-wrench fa-2x text-success mb-3"></i>
+                                <h6 class="card-title">Fix Embeddings</h6>
+                                <p class="card-text small">Fix embedding model names and FAISS mapping</p>
+                                <button class="btn btn-success btn-sm" onclick="fixEmbeddings()">
+                                    <i class="fas fa-wrench"></i> Fix
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card border-danger">
+                            <div class="card-body text-center">
+                                <i class="fas fa-trash fa-2x text-danger mb-3"></i>
+                                <h6 class="card-title">Delete All Chunks</h6>
+                                <p class="card-text small">Delete all chunks to start fresh</p>
+                                <button class="btn btn-danger btn-sm" onclick="deleteAllChunks()">
+                                    <i class="fas fa-trash"></i> Delete All
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card border-warning">
+                            <div class="card-body text-center">
+                                <i class="fas fa-sync-alt fa-2x text-warning mb-3"></i>
+                                <h6 class="card-title">Rebuild Embeddings</h6>
+                                <p class="card-text small">Rebuild vector embeddings for all documents</p>
+                                <button class="btn btn-warning btn-sm" onclick="rebuildEmbeddings()">
+                                    <i class="fas fa-sync-alt"></i> Rebuild
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -117,12 +177,12 @@
                                 </td>
                                 <td>
                                     <div class="btn-group">
-                                        <a href="{{ url_for('kb_bp.view_document', document_id=document.id) }}" 
+                                        <a href="{{ url_for('kb_bp.view_document', document_id=document.id) }}"
                                            class="btn btn-sm btn-info">
                                             <i class="fas fa-eye"></i> View
                                         </a>
-                                        <button type="button" class="btn btn-sm btn-danger" 
-                                                data-bs-toggle="modal" 
+                                        <button type="button" class="btn btn-sm btn-danger"
+                                                data-bs-toggle="modal"
                                                 data-bs-target="#deleteDocumentModal"
                                                 data-document-id="{{ document.id }}">
                                             <i class="fas fa-trash"></i> Delete
@@ -182,5 +242,177 @@
         // Let the form submit normally - no need to prevent default
         // The form will POST to the correct endpoint with CSRF token
     });
+
+    // Knowledge Base Debug Functions
+    function checkKBStatus() {
+        console.log('Checking KB status...');
+
+        fetch('/knowledge-base/debug-status', {
+            method: 'GET',
+            headers: {
+                'X-CSRFToken': document.querySelector('meta[name=csrf-token]').getAttribute('content')
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                console.log('KB Status:', data);
+
+                let message = `Knowledge Base Status:\n\n`;
+                message += `User ID: ${data.user_id}\n`;
+                message += `FAISS Vector Count: ${data.kb_status.faiss_vector_count}\n`;
+                message += `FAISS Index Dimension: ${data.kb_status.faiss_index_dimension}\n`;
+                message += `Total Documents: ${data.kb_status.total_documents}\n`;
+                message += `Total Chunks: ${data.kb_status.total_chunks}\n`;
+                message += `Embedding Model: ${data.kb_status.embedding_model_name}\n\n`;
+
+                message += `Documents:\n`;
+                data.documents.forEach(doc => {
+                    message += `- ${doc.filename}: ${doc.status}, ${doc.actual_chunks} chunks, ${doc.chunks_with_faiss_ids} with FAISS IDs\n`;
+                });
+
+                alert(message);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error checking KB status: ' + error);
+            });
+    }
+
+    function fixEmbeddings() {
+        if (!confirm('This will fix embedding model names and FAISS mapping. Continue?')) {
+            return;
+        }
+
+        console.log('Fixing embeddings...');
+
+        // Show loading state
+        const button = event.target;
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Fixing...';
+        button.disabled = true;
+
+        fetch('/knowledge-base/fix-embeddings', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name=csrf-token]').getAttribute('content')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Fix result:', data);
+
+            let message = `Fix completed!\n\n${data.message}\n\n`;
+            message += `Fixed chunks: ${data.fixed_chunks}\n`;
+            message += `Chunks added to FAISS: ${data.chunks_added_to_faiss}\n`;
+            message += `Final FAISS count: ${data.final_faiss_count}`;
+
+            alert(message);
+
+            // Reload the page to show updated status
+            window.location.reload();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error fixing embeddings: ' + error);
+        })
+        .finally(() => {
+            // Reset button state
+            button.innerHTML = originalText;
+            button.disabled = false;
+        });
+    }
+
+    function rebuildEmbeddings() {
+        if (!confirm('This will rebuild embeddings for all documents. This may take a while. Continue?')) {
+            return;
+        }
+
+        console.log('Rebuilding embeddings...');
+
+        // Show loading state
+        const button = event.target;
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Rebuilding...';
+        button.disabled = true;
+
+        fetch('/knowledge-base/rebuild-embeddings', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name=csrf-token]').getAttribute('content')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Rebuild result:', data);
+
+            let message = `Rebuild completed!\n\n${data.message}\n\nResults:\n`;
+            data.results.forEach(result => {
+                message += `- ${result.filename}: ${result.success ? 'SUCCESS' : 'FAILED'} - ${result.message}\n`;
+            });
+
+            alert(message);
+
+            // Reload the page to show updated status
+            window.location.reload();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error rebuilding embeddings: ' + error);
+        })
+        .finally(() => {
+            // Reset button state
+            button.innerHTML = originalText;
+            button.disabled = false;
+        });
+    }
+
+    function deleteAllChunks() {
+        if (!confirm('This will DELETE ALL CHUNKS permanently! This cannot be undone. Are you sure?')) {
+            return;
+        }
+
+        console.log('Deleting all chunks...');
+
+        // Show loading state
+        const button = event.target;
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
+        button.disabled = true;
+
+        fetch('/knowledge-base/delete-all-chunks', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name=csrf-token]').getAttribute('content')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Delete result:', data);
+
+            let message = `Delete completed!\n\n${data.message}`;
+            alert(message);
+
+            // Reload the page to show updated status
+            window.location.reload();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error deleting chunks: ' + error);
+        })
+        .finally(() => {
+            // Reset button state
+            button.innerHTML = originalText;
+            button.disabled = false;
+        });
+    }
+
+    // Make functions global so they can be called from onclick
+    window.checkKBStatus = checkKBStatus;
+    window.fixEmbeddings = fixEmbeddings;
+    window.deleteAllChunks = deleteAllChunks;
+    window.rebuildEmbeddings = rebuildEmbeddings;
 </script>
 {% endblock %}

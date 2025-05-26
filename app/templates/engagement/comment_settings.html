@@ -1,0 +1,151 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-chat-left-text-fill me-2"></i>
+                    Comment Automation Settings
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-4">
+                    Configure how Amplify Impact Pro discovers and suggests comments 
+                    for relevant social media posts.
+                </p>
+
+                <form method="POST" action="{{ url_for('engagement_bp.comment_settings') }}">
+                    {{ form.hidden_tag() }}
+                    
+                    <!-- Enable/Disable -->
+                    <div class="mb-4">
+                        <div class="form-check form-switch">
+                            {{ form.is_active(class="form-check-input", id="is_active") }}
+                            <label class="form-check-label" for="is_active">
+                                <strong>{{ form.is_active.label.text }}</strong>
+                            </label>
+                        </div>
+                        <div class="form-text">
+                            When enabled, the system will automatically discover posts and generate comment suggestions.
+                        </div>
+                    </div>
+                    
+                    <!-- Keywords -->
+                    <div class="mb-4">
+                        <label for="keywords" class="form-label">
+                            <strong>{{ form.keywords.label.text }}</strong>
+                        </label>
+                        {{ form.keywords(class="form-control", id="keywords", rows=3, placeholder="nonprofit, charity, social impact, community") }}
+                        {% for error in form.keywords.errors %}
+                            <div class="invalid-feedback d-block">{{ error }}</div>
+                        {% endfor %}
+                        <div class="form-text">
+                            Enter keywords or hashtags (without #) that are relevant to your organization's mission. 
+                            The system will look for posts containing these terms.
+                        </div>
+                    </div>
+                    
+                    <!-- Monitored X Accounts -->
+                    <div class="mb-4">
+                        <label for="monitored_x_accounts" class="form-label">
+                            <strong>{{ form.monitored_x_accounts.label.text }}</strong>
+                        </label>
+                        {{ form.monitored_x_accounts(class="form-control", id="monitored_x_accounts", rows=3, placeholder="username1, username2, username3") }}
+                        {% for error in form.monitored_x_accounts.errors %}
+                            <div class="invalid-feedback d-block">{{ error }}</div>
+                        {% endfor %}
+                        <div class="form-text">
+                            Enter X (Twitter) usernames to monitor for new posts. Don't include the @ symbol.
+                            Example: elonmusk, twitter, nonprofitorg
+                        </div>
+                    </div>
+                    
+                    <!-- Default Posting Account -->
+                    <div class="mb-4">
+                        <label for="default_posting_account_id" class="form-label">
+                            <strong>{{ form.default_posting_account_id.label.text }}</strong>
+                        </label>
+                        {{ form.default_posting_account_id(class="form-select", id="default_posting_account_id") }}
+                        {% for error in form.default_posting_account_id.errors %}
+                            <div class="invalid-feedback d-block">{{ error }}</div>
+                        {% endfor %}
+                        <div class="form-text">
+                            Select which of your connected X accounts should be used for posting comments.
+                            You can change this for individual comments during review.
+                        </div>
+                    </div>
+                    
+                    <!-- Submit Button -->
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('engagement_bp.index') }}" class="btn btn-secondary me-md-2">
+                            <i class="bi bi-arrow-left"></i> Back to Engagement
+                        </a>
+                        {{ form.submit(class="btn btn-primary") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Help Section -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card border-info">
+            <div class="card-header bg-info text-white">
+                <h6 class="mb-0">
+                    <i class="bi bi-info-circle-fill me-2"></i>
+                    How Comment Automation Works
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <h6><i class="bi bi-search text-primary"></i> Discovery</h6>
+                        <p class="small text-muted">
+                            The system monitors X for posts containing your keywords or from accounts you're watching.
+                        </p>
+                    </div>
+                    <div class="col-md-4">
+                        <h6><i class="bi bi-robot text-success"></i> Generation</h6>
+                        <p class="small text-muted">
+                            AI generates relevant, thoughtful comments based on your knowledge base and organization's voice.
+                        </p>
+                    </div>
+                    <div class="col-md-4">
+                        <h6><i class="bi bi-eye text-warning"></i> Review</h6>
+                        <p class="small text-muted">
+                            All suggested comments require your approval before posting to maintain quality and authenticity.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+$(document).ready(function() {
+    // Show/hide sections based on is_active toggle
+    $('#is_active').change(function() {
+        if ($(this).is(':checked')) {
+            $('.dependent-settings').slideDown();
+        } else {
+            $('.dependent-settings').slideUp();
+        }
+    });
+    
+    // Initialize state
+    if (!$('#is_active').is(':checked')) {
+        $('.dependent-settings').hide();
+    }
+});
+</script>
+{% endblock %}

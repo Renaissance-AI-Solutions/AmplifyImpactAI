@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 from app import db
 from app.models import PortalUser, ManagedAccount, KnowledgeDocument, ScheduledPost, GeneratedComment, ActionLog, ApiKey, CommentAutomationSetting, RecurringPostSchedule
-from app.forms import PostComposerForm, SchedulePostForm, CommentSettingsForm, ApiKeyForm, RecurringPostScheduleForm
+from app.forms import PostComposerForm, SchedulePostForm, CommentSettingsForm, ApiKeyForm, RecurringPostScheduleForm, ModelSelectionForm
 from app.services.social_media_platforms import XPlatform
 from app.services.knowledge_base_manager import KnowledgeBaseManager
 from app.services.analytics_service import AnalyticsService
@@ -26,7 +26,7 @@ def dashboard():
     .join(GeneratedComment.posting_account)
     .filter(ManagedAccount.portal_user_id == current_user.id, GeneratedComment.status == 'pending_review')
 )
-    
+
     # Get recent activity
     recent_activity = (
         ActionLog.query.filter_by(portal_user_id=current_user.id)
@@ -34,7 +34,7 @@ def dashboard():
         .limit(20)
         .all()
     )
-    
+
     # Get upcoming scheduled posts
     upcoming_posts = db.session.scalars(
         db.select(ScheduledPost)
@@ -46,7 +46,7 @@ def dashboard():
         .order_by(ScheduledPost.scheduled_time)
         .limit(5)
     ).all()
-    
+
     return render_template('main/dashboard.html',
                          account_count=account_count,
                          scheduled_posts_count=scheduled_posts_count,
@@ -59,11 +59,11 @@ def dashboard():
 def post_composer():
     form = PostComposerForm()
     schedule_form = SchedulePostForm()
-    
+
     # Populate account choices
     form.target_account_id.choices = get_managed_account_choices(current_user.id)
     schedule_form.target_account_id_schedule.choices = get_managed_account_choices(current_user.id)
-    
+
     if form.validate_on_submit():
         if form.post_now.data:  # Post immediately
             return self._handle_immediate_post(form)
@@ -71,7 +71,7 @@ def post_composer():
             return self._handle_schedule_post(form, schedule_form)
         elif form.generate_with_ai.data:  # Generate with AI
             return self._handle_ai_generation(form)
-    
+
     return render_template('post_composer.html', form=form, schedule_form=schedule_form)
 
 @main_bp.route('/comment-manager')
@@ -82,7 +82,7 @@ def comment_manager():
     .join(GeneratedComment.posting_account)
     .filter(ManagedAccount.portal_user_id == current_user.id, GeneratedComment.status == 'pending_review')
 ).all()
-    
+
     approved_comments = db.session.scalars(
     db.select(GeneratedComment)
     .join(GeneratedComment.posting_account)
@@ -90,7 +90,7 @@ def comment_manager():
     .order_by(GeneratedComment.posted_at.desc())
     .limit(10)
 ).all()
-    
+
     return render_template('comment_manager.html',
                          pending_comments=pending_comments,
                          approved_comments=approved_comments)
@@ -100,7 +100,7 @@ def comment_manager():
 def settings():
     comment_settings_form = CommentSettingsForm()
     api_key_form = ApiKeyForm()
-    
+
     # Pre-populate comment settings form with current settings if they exist
     comment_settings = CommentAutomationSetting.query.filter_by(portal_user_id=current_user.id).first()
     if comment_settings:
@@ -111,14 +111,24 @@ def settings():
         comment_settings_form.is_active.data = comment_settings.is_active
     else:
         comment_settings_form.default_posting_account_id.choices = get_managed_account_choices(current_user.id, add_blank=True)
-    
+
     # Pre-populate API key form with current API keys if they exist
     api_keys = ApiKey.query.filter_by(portal_user_id=current_user.id).first()
-    if api_keys and api_keys.openai_api_key:
-        # Mask the API key for display (show only last 4 characters)
-        masked_key = '••••••••' + api_keys.openai_api_key[-4:] if len(api_keys.openai_api_key) > 4 else '••••'
-        api_key_form.openai_api_key.render_kw = {'placeholder': masked_key}
-    
+    if api_keys:
+        if api_keys.openai_api_key:
+            # Mask the OpenAI API key for display (show only last 4 characters)
+            masked_key = '••••••••' + api_keys.openai_api_key[-4:] if len(api_keys.openai_api_key) > 4 else '••••'
+            api_key_form.openai_api_key.render_kw = {'placeholder': masked_key}
+
+        if api_keys.gemini_api_key:
+            # Mask the Gemini API key for display (show only last 4 characters)
+            masked_key = '••••••••' + api_keys.gemini_api_key[-4:] if len(api_keys.gemini_api_key) > 4 else '••••'
+            api_key_form.gemini_api_key.render_kw = {'placeholder': masked_key}
+
+        # Set current preferred model
+        if api_keys.preferred_ai_model:
+            api_key_form.preferred_ai_model.data = api_keys.preferred_ai_model
+
     # Handle form submissions
     if request.method == 'POST':
         # Handle Comment Settings form
@@ -126,32 +136,43 @@ def settings():
             if not comment_settings:
                 comment_settings = CommentAutomationSetting(portal_user_id=current_user.id)
                 db.session.add(comment_settings)
-            
+
             comment_settings.keywords = comment_settings_form.keywords.data
             comment_settings.monitored_x_accounts = comment_settings_form.monitored_x_accounts.data
-            comment_settings.default_posting_managed_account_id = comment_settings_form.default_posting_account_id.data or None
+            # Handle the case where 0 means "no account selected"
+            if comment_settings_form.default_posting_account_id.data == 0:
+                comment_settings.default_posting_managed_account_id = None
+            else:
+                comment_settings.default_posting_managed_account_id = comment_settings_form.default_posting_account_id.data
             comment_settings.is_active = comment_settings_form.is_active.data
-            
+
             db.session.commit()
             flash('Comment settings saved successfully!', 'success')
             return redirect(url_for('main_bp.settings'))
-            
+
         # Handle API Key form
         elif 'submit' in request.form and api_key_form.validate():
             if not api_keys:
                 api_keys = ApiKey(portal_user_id=current_user.id)
                 db.session.add(api_keys)
-            
+
             # Only update if a new key is provided
             if api_key_form.openai_api_key.data:
                 api_keys.openai_api_key = api_key_form.openai_api_key.data
-            
+
+            if api_key_form.gemini_api_key.data:
+                api_keys.gemini_api_key = api_key_form.gemini_api_key.data
+
+            # Always update the preferred model
+            api_keys.preferred_ai_model = api_key_form.preferred_ai_model.data
+
             db.session.commit()
-            flash('API key saved successfully!', 'success')
+            flash('Settings saved successfully!', 'success')
             return redirect(url_for('main_bp.settings'))
-        comment_settings_form.is_active.data = settings.is_active
-    
-    return render_template('settings.html', comment_settings_form=comment_settings_form)
+
+    return render_template('main/settings.html',
+                         comment_settings_form=comment_settings_form,
+                         api_key_form=api_key_form)
 
 
 @main_bp.route('/analytics')
@@ -159,14 +180,14 @@ def settings():
 def analytics():
     # Initialize analytics service
     analytics_service = AnalyticsService(current_user.id)
-    
+
     # Get analytics data
     stats = analytics_service.get_overview_stats(days=30)
     post_volume_data = analytics_service.get_post_volume_data(days=30)
     comment_distribution_data = analytics_service.get_comment_distribution_data()
     account_performance = analytics_service.get_account_performance()
     top_content = analytics_service.get_top_performing_content(limit=5)
-    
+
     return render_template('analytics.html',
                            stats=stats,
                            post_volume_data=post_volume_data,
@@ -180,18 +201,18 @@ def api_generate_comment():
     data = request.json
     if not data or not all(key in data for key in ['post_content', 'post_author', 'post_context']):
         return {'error': 'Missing required parameters'}, 400
-    
+
     try:
         # Initialize knowledge base manager
         kbm = KnowledgeBaseManager()
-        
+
         # Generate comment
         comment = kbm.generate_comment(
             post_content=data['post_content'],
             post_author=data['post_author'],
             post_context=data['post_context']
         )
-        
+
         return {'comment': comment}
     except Exception as e:
         current_app.logger.error(f"Error generating comment: {e}")
@@ -203,23 +224,23 @@ def api_schedule_comment():
     data = request.json
     if not data or not all(key in data for key in ['comment_id', 'target_post_id', 'target_platform']):
         return {'error': 'Missing required parameters'}, 400
-    
+
     try:
         # Get comment
         comment = GeneratedComment.query.get(data['comment_id'])
         if not comment or comment.portal_user_id != current_user.id:
             return {'error': 'Comment not found or unauthorized'}, 404
-        
+
         # Get posting account
         account = ManagedAccount.query.get(comment.managed_account_id_to_post_from)
         if not account or not account.is_active:
             return {'error': 'Posting account not found or inactive'}, 404
-        
+
         # Initialize platform
         platform = XPlatform(account)
         if not platform.client:
             return {'error': 'Cannot initialize platform client'}, 500
-        
+
         # Post comment
         response = platform.post_comment(data['target_post_id'], comment.suggested_comment_text)
         if response:
@@ -227,7 +248,7 @@ def api_schedule_comment():
             comment.posted_at = datetime.now(timezone.utc)
             comment.platform_comment_id = response.get('id')
             db.session.commit()
-            
+
             # Log action
             action_log = ActionLog(
                 portal_user_id=current_user.id,
@@ -238,11 +259,11 @@ def api_schedule_comment():
             )
             db.session.add(action_log)
             db.session.commit()
-            
+
             return {'status': 'success', 'comment_id': comment.id}
         else:
             return {'error': 'Failed to post comment'}, 500
-            
+
     except Exception as e:
         current_app.logger.error(f"Error scheduling comment: {e}")
         return {'error': str(e)}, 500
@@ -257,10 +278,10 @@ def get_managed_account_choices(portal_user_id, platform='X', add_blank=False):
         .order_by(ManagedAccount.account_display_name)
         .all()
     )
-    
+
     choices = [(acc.id, acc.account_display_name or acc.account_id_on_platform) for acc in accounts]
     if add_blank:
-        choices.insert(0, ('', '--- Select Account ---'))
+        choices.insert(0, (0, '--- Select Account ---'))
     return choices
 
 def _handle_immediate_post(form):
@@ -271,13 +292,13 @@ def _handle_immediate_post(form):
         if not account or not account.is_active:
             flash('Selected account is not active', 'error')
             return redirect(url_for('main_bp.post_composer'))
-        
+
         # Initialize platform
         platform = XPlatform(account)
         if not platform.client:
             flash('Cannot initialize platform client', 'error')
             return redirect(url_for('main_bp.post_composer'))
-        
+
         # Post content
         response = platform.post_update(form.content.data)
         if response:
@@ -291,13 +312,13 @@ def _handle_immediate_post(form):
             )
             db.session.add(post)
             db.session.commit()
-            
+
             flash('Post published successfully!', 'success')
         else:
             flash('Failed to publish post', 'error')
-            
+
         return redirect(url_for('main_bp.post_composer'))
-        
+
     except Exception as e:
         current_app.logger.error(f"Error posting immediately: {e}")
         flash('Error publishing post', 'error')
@@ -307,7 +328,7 @@ def _handle_schedule_post(form, schedule_form):
     """Handle scheduled post submission."""
     if not schedule_form.validate_on_submit():
         return redirect(url_for('main_bp.post_composer'))
-        
+
     try:
         # Create scheduled post
         post = ScheduledPost(
@@ -318,14 +339,14 @@ def _handle_schedule_post(form, schedule_form):
         )
         db.session.add(post)
         db.session.commit()
-        
+
         # Schedule the post
         from flask import current_app
         current_app.scheduler_service.schedule_post(post.id)
-        
+
         flash('Post scheduled successfully!', 'success')
         return redirect(url_for('main_bp.post_composer'))
-        
+
     except Exception as e:
         current_app.logger.error(f"Error scheduling post: {e}")
         flash('Error scheduling post', 'error')
@@ -336,20 +357,20 @@ def _handle_ai_generation(form):
     try:
         # Initialize knowledge base manager
         kbm = KnowledgeBaseManager()
-        
+
         # Generate content
         content = kbm.generate_content(
             topic=form.topic.data,
             tone=form.tone.data,
             style=form.style.data
         )
-        
+
         # Update form with generated content
         form.generated_content_display.data = content
-        
+
         flash('AI content generated successfully!', 'success')
         return render_template('post_composer.html', form=form, schedule_form=schedule_form)
-        
+
     except Exception as e:
         current_app.logger.error(f"Error generating AI content: {e}")
         flash('Error generating AI content', 'error')
@@ -380,14 +401,14 @@ def _get_performance_metrics():
 def recurring_posts():
     """View and manage recurring post schedules."""
     schedules = RecurringPostSchedule.query.filter_by(portal_user_id=current_user.id).all()
-    
+
     # Get the count of posts created from each schedule
     for schedule in schedules:
         schedule.post_count = ScheduledPost.query.filter_by(
             recurring_schedule_id=schedule.id,
             is_from_recurring_schedule=True
         ).count()
-    
+
     return render_template('recurring_posts.html', schedules=schedules)
 
 @main_bp.route('/recurring-posts/new', methods=['GET', 'POST'])
@@ -396,7 +417,7 @@ def new_recurring_post():
     """Create a new recurring post schedule."""
     form = RecurringPostScheduleForm()
     form.target_account_id.choices = get_managed_account_choices(current_user.id)
-    
+
     if form.validate_on_submit():
         try:
             # Create new recurring schedule
@@ -409,26 +430,26 @@ def new_recurring_post():
                 time_of_day=form.time_of_day.data,
                 is_active=form.is_active.data
             )
-            
+
             # Set day_of_week or day_of_month based on frequency
             if form.frequency.data == 'weekly':
                 schedule.day_of_week = form.day_of_week.data
             elif form.frequency.data == 'monthly':
                 schedule.day_of_month = form.day_of_month.data
-            
+
             db.session.add(schedule)
             db.session.commit()
-            
+
             # Schedule the recurring post
             current_app.scheduler_service.schedule_recurring_post(schedule.id)
-            
+
             flash('Recurring post schedule created successfully!', 'success')
             return redirect(url_for('main_bp.recurring_posts'))
-            
+
         except Exception as e:
             current_app.logger.error(f"Error creating recurring post schedule: {e}")
             flash('Error creating recurring post schedule', 'error')
-    
+
     return render_template('recurring_post_form.html', form=form, is_edit=False)
 
 @main_bp.route('/recurring-posts/edit/<int:schedule_id>', methods=['GET', 'POST'])
@@ -436,10 +457,10 @@ def new_recurring_post():
 def edit_recurring_post(schedule_id):
     """Edit an existing recurring post schedule."""
     schedule = RecurringPostSchedule.query.filter_by(id=schedule_id, portal_user_id=current_user.id).first_or_404()
-    
+
     form = RecurringPostScheduleForm(obj=schedule)
     form.target_account_id.choices = get_managed_account_choices(current_user.id)
-    
+
     if form.validate_on_submit():
         try:
             # Update schedule with form data
@@ -449,30 +470,30 @@ def edit_recurring_post(schedule_id):
             schedule.frequency = form.frequency.data
             schedule.time_of_day = form.time_of_day.data
             schedule.is_active = form.is_active.data
-            
+
             # Reset day_of_week and day_of_month
             schedule.day_of_week = None
             schedule.day_of_month = None
-            
+
             # Set day_of_week or day_of_month based on frequency
             if form.frequency.data == 'weekly':
                 schedule.day_of_week = form.day_of_week.data
             elif form.frequency.data == 'monthly':
                 schedule.day_of_month = form.day_of_month.data
-            
+
             schedule.updated_at = datetime.now(timezone.utc)
             db.session.commit()
-            
+
             # Update the schedule in the scheduler
             current_app.scheduler_service.update_recurring_schedule(schedule.id)
-            
+
             flash('Recurring post schedule updated successfully!', 'success')
             return redirect(url_for('main_bp.recurring_posts'))
-            
+
         except Exception as e:
             current_app.logger.error(f"Error updating recurring post schedule: {e}")
             flash('Error updating recurring post schedule', 'error')
-    
+
     return render_template('recurring_post_form.html', form=form, is_edit=True, schedule=schedule)
 
 @main_bp.route('/recurring-posts/toggle/<int:schedule_id>', methods=['POST'])
@@ -480,19 +501,19 @@ def edit_recurring_post(schedule_id):
 def toggle_recurring_post(schedule_id):
     """Toggle the active status of a recurring post schedule."""
     schedule = RecurringPostSchedule.query.filter_by(id=schedule_id, portal_user_id=current_user.id).first_or_404()
-    
+
     try:
         schedule.is_active = not schedule.is_active
         db.session.commit()
-        
+
         # Update the schedule in the scheduler
         current_app.scheduler_service.update_recurring_schedule(schedule.id)
-        
+
         status = 'activated' if schedule.is_active else 'deactivated'
         flash(f'Recurring post schedule {status} successfully!', 'success')
-        
+
         return jsonify({'success': True, 'is_active': schedule.is_active})
-        
+
     except Exception as e:
         current_app.logger.error(f"Error toggling recurring post schedule: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -502,7 +523,7 @@ def toggle_recurring_post(schedule_id):
 def delete_recurring_post(schedule_id):
     """Delete a recurring post schedule."""
     schedule = RecurringPostSchedule.query.filter_by(id=schedule_id, portal_user_id=current_user.id).first_or_404()
-    
+
     try:
         # Remove the schedule from the scheduler
         job_id = f'recurring_{schedule.id}'
@@ -511,14 +532,14 @@ def delete_recurring_post(schedule_id):
         except Exception:
             # Job might not exist, which is fine
             pass
-        
+
         # Delete the schedule
         db.session.delete(schedule)
         db.session.commit()
-        
+
         flash('Recurring post schedule deleted successfully!', 'success')
         return jsonify({'success': True})
-        
+
     except Exception as e:
         current_app.logger.error(f"Error deleting recurring post schedule: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500

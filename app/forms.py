@@ -1,8 +1,8 @@
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed, FileRequired
-from wtforms import StringField, PasswordField, BooleanField, SubmitField, TextAreaField, SelectField, DateTimeLocalField, IntegerField, TimeField
+from wtforms import StringField, PasswordField, BooleanField, SubmitField, TextAreaField, SelectField, DateTimeLocalField, IntegerField, TimeField, HiddenField
 from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional, ValidationError, NumberRange
-from app import db 
+from app import db
 from app.models import PortalUser, ManagedAccount, KnowledgeDocument
 
 class LoginForm(FlaskForm):
@@ -41,14 +41,14 @@ class PostComposerForm(FlaskForm):
     content = TextAreaField('Post Content', validators=[DataRequired(), Length(max=280)])
     topic = StringField('Topic/Idea (for AI)', validators=[Optional(), Length(max=200)])
     tone = SelectField('Tone (for AI)', choices=[
-        ('informative', 'Informative'), ('friendly', 'Friendly'), ('formal', 'Formal'), 
+        ('informative', 'Informative'), ('friendly', 'Friendly'), ('formal', 'Formal'),
         ('urgent', 'Urgent'), ('inspirational', 'Inspirational'), ('humorous', 'Humorous')
     ], validators=[Optional()])
     style = SelectField('Style (for AI)', choices=[
-        ('concise', 'Concise'), ('detailed', 'Detailed'), ('question', 'Question'), 
+        ('concise', 'Concise'), ('detailed', 'Detailed'), ('question', 'Question'),
         ('story', 'Story-telling')
     ], validators=[Optional()])
-    
+
     post_now = SubmitField('Post Now')
     schedule_post_action = SubmitField('Schedule Post')
     save_draft_action = SubmitField('Save Draft')
@@ -72,7 +72,26 @@ class CommentSettingsForm(FlaskForm):
 class ApiKeyForm(FlaskForm):
     openai_api_key = StringField('OpenAI API Key', validators=[Optional(), Length(min=20, max=100)])
     gemini_api_key = StringField('Gemini API Key', validators=[Optional(), Length(min=20, max=100)])
-    submit = SubmitField('Save API Key(s)')
+    preferred_ai_model = SelectField('Preferred AI Model', choices=[
+        ('gpt-3.5-turbo', 'GPT-3.5 Turbo (OpenAI)'),
+        ('gpt-4', 'GPT-4 (OpenAI)'),
+        ('gpt-4-turbo', 'GPT-4 Turbo (OpenAI)'),
+        ('gemini-1.5-flash', 'Gemini 1.5 Flash (Google) - Fast & Versatile'),
+        ('gemini-1.5-pro', 'Gemini 1.5 Pro (Google) - Advanced Reasoning'),
+        ('gemini-1.5-flash-8b', 'Gemini 1.5 Flash-8B (Google) - Efficient')
+    ], default='gpt-3.5-turbo', validators=[DataRequired()])
+    submit = SubmitField('Save Settings')
+
+class ModelSelectionForm(FlaskForm):
+    ai_model = SelectField('AI Model', choices=[
+        ('gpt-3.5-turbo', 'GPT-3.5 Turbo (OpenAI)'),
+        ('gpt-4', 'GPT-4 (OpenAI)'),
+        ('gpt-4-turbo', 'GPT-4 Turbo (OpenAI)'),
+        ('gemini-2.0-flash-exp', 'Gemini 2.0 Flash (Google)'),
+        ('gemini-1.5-pro', 'Gemini 1.5 Pro (Google)'),
+        ('gemini-1.5-flash', 'Gemini 1.5 Flash (Google)')
+    ], default='gpt-3.5-turbo', validators=[DataRequired()])
+    submit_model = SubmitField('Save Model Preference')
 
 class EditCommentForm(FlaskForm):
     comment_text = TextAreaField('Edit Comment', validators=[DataRequired(), Length(max=280)])
@@ -82,22 +101,22 @@ class EditCommentForm(FlaskForm):
 def get_managed_account_choices(portal_user_id, platform=None, add_blank=False):
     # Build the query based on provided platform filter
     query = db.select(ManagedAccount).filter_by(portal_user_id=portal_user_id, is_active=True)
-    
+
     # If a specific platform is requested, filter by it
     if platform:
         query = query.filter_by(platform_name=platform)
-        
+
     # Get accounts and order by platform name and display name
     accounts = db.session.scalars(
         query.order_by(ManagedAccount.platform_name, ManagedAccount.account_display_name)
     ).all()
-    
+
     # Create choices with platform indicator in the display text
     choices = [(acc.id, f"{acc.account_display_name or acc.account_id_on_platform} ({acc.platform_name})") for acc in accounts]
-    
+
     if add_blank:
         choices.insert(0, ('', '--- Select Account ---'))
-        
+
     return choices
 
 
@@ -108,13 +127,13 @@ def get_document_choices(portal_user_id, add_blank=True):
         .filter_by(portal_user_id=portal_user_id)
         .order_by(KnowledgeDocument.uploaded_at.desc())
     ).all()
-    
-    choices = [(str(doc.id), f"{doc.filename} (uploaded {doc.uploaded_at.strftime('%Y-%m-%d')})") 
+
+    choices = [(str(doc.id), f"{doc.filename} (uploaded {doc.uploaded_at.strftime('%Y-%m-%d')})")
               for doc in documents]
-    
+
     if add_blank:
         choices.insert(0, ('', '--- Select a Document ---'))
-    
+
     return choices
 
 
@@ -123,13 +142,13 @@ class RecurringPostScheduleForm(FlaskForm):
     name = StringField('Schedule Name', validators=[DataRequired(), Length(max=255)])
     target_account_id = SelectField('Post to Account', coerce=int, validators=[DataRequired()])
     content_template = TextAreaField('Post Content Template', validators=[DataRequired(), Length(max=280)])
-    
+
     frequency = SelectField('Frequency', choices=[
         ('daily', 'Daily'),
         ('weekly', 'Weekly'),
         ('monthly', 'Monthly')
     ], validators=[DataRequired()])
-    
+
     time_of_day = TimeField('Time of Day (UTC)', format='%H:%M', validators=[DataRequired()])
     day_of_week = SelectField('Day of Week', choices=[
         (0, 'Monday'),
@@ -140,17 +159,17 @@ class RecurringPostScheduleForm(FlaskForm):
         (5, 'Saturday'),
         (6, 'Sunday')
     ], coerce=int, validators=[Optional()])
-    day_of_month = SelectField('Day of Month', 
+    day_of_month = SelectField('Day of Month',
                              choices=[(i, str(i)) for i in range(1, 32)],
                              coerce=int, validators=[Optional()])
-    
+
     is_active = BooleanField('Active', default=True)
     submit = SubmitField('Save Schedule')
 
 
 class ContentGenerationForm(FlaskForm):
     """Form for generating content from knowledge documents."""
-    document_id = SelectField('Knowledge Document', 
+    document_id = SelectField('Knowledge Document',
                            coerce=lambda x: int(x) if x else None,
                            validators=[DataRequired(message='Please select a document')])
     platform = SelectField('Platform', choices=[
@@ -174,13 +193,12 @@ class ContentGenerationForm(FlaskForm):
         ('story', 'Story-telling')
     ], validators=[DataRequired()])
     model = SelectField('LLM Model', choices=[
-        ('gpt-3.5-turbo', 'GPT-3.5 Turbo (Default)'),
-        ('gpt-4', 'GPT-4 (Higher Quality)'),
-        ('gpt-4-turbo', 'GPT-4 Turbo (Fast & High Quality)'),
-        ('gpt-4.1', 'GPT-4.1 (Latest & Highest Quality)'),
-        ('gpt-4.1-mini', 'GPT-4.1 Mini (Balanced Performance)'),
-        ('gemini-2.5-flash', 'Gemini 2.5 Flash (Fast)'),
-        ('gemini-2.5-pro', 'Gemini 2.5 Pro (Advanced)')
+        ('gpt-3.5-turbo', 'GPT-3.5 Turbo (OpenAI)'),
+        ('gpt-4', 'GPT-4 (OpenAI)'),
+        ('gpt-4-turbo', 'GPT-4 Turbo (OpenAI)'),
+        ('gemini-1.5-flash', 'Gemini 1.5 Flash (Google) - Fast & Versatile'),
+        ('gemini-1.5-pro', 'Gemini 1.5 Pro (Google) - Advanced Reasoning'),
+        ('gemini-1.5-flash-8b', 'Gemini 1.5 Flash-8B (Google) - Efficient')
     ], default='gpt-3.5-turbo', validators=[DataRequired()])
     topic = StringField('Specific Topic/Focus (optional)', validators=[Optional(), Length(max=200)])
     max_length = IntegerField('Maximum Length (characters)', validators=[
@@ -189,6 +207,7 @@ class ContentGenerationForm(FlaskForm):
     ], default=280)
     include_hashtags = BooleanField('Include Hashtags', default=True)
     include_emoji = BooleanField('Include Emoji', default=True)
+    optimize_for_engagement = BooleanField('Optimize for Engagement', default=True)
     generate_button = SubmitField('Generate Content')
     copy_button = SubmitField('Copy to Clipboard')
     save_button = SubmitField('Save as Draft')
@@ -198,6 +217,6 @@ class BulkScheduleForm(FlaskForm):
     """Form for bulk scheduling posts."""
     target_account_id = SelectField('Target Account', coerce=int, validators=[DataRequired()])
     hidden_tag = HiddenField()
-    
+
     # Note: The actual post content and scheduling options are handled in the frontend
     # using dynamic form elements that are processed in the view function
