@@ -55,7 +55,7 @@ This application handles sensitive information including API keys and user crede
 
 6. Run the application:
    ```bash
-   flask run
+   py run.py
    ```
 
 ## Environment Variables
