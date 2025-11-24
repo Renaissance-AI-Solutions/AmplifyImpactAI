@@ -26,9 +26,182 @@ This roadmap outlines the prioritized tasks needed to complete the Minimum Viabl
 
 ## Week 1: Core MVP Features (Days 1-7)
 
-### 🔴 P0 Tasks
+### 🔴 P0 Tasks - Content Generation Improvements
 
-#### 1. Complete Analytics Dashboard UI
+> **NOTE:** Content generation is the core value proposition. These improvements are CRITICAL for MVP success.
+> See `POST_GENERATION_ANALYSIS.md` for detailed technical analysis.
+
+#### 1. Implement Semantic Content Retrieval System
+**Priority:** P0 - Critical (Content Generation)
+**Estimated Time:** 2 days
+**Assignee:** Backend Developer
+**Dependencies:** None (uses existing FAISS infrastructure)
+
+**Problem:**
+Currently using inefficient TF-IDF for topic extraction. Not utilizing the sophisticated FAISS semantic search that's already built! This results in:
+- 40-60% lower content relevance
+- Slow performance (2-5 seconds per request)
+- Wasted embeddings infrastructure
+- Lower quality posts
+
+**Solution:**
+Replace TF-IDF topic extraction with FAISS semantic search + hybrid re-ranking.
+
+**Tasks:**
+- [ ] Create `app/services/content_generation/semantic_retriever.py`
+- [ ] Implement `SemanticContentRetriever` class
+- [ ] Integrate with existing `KnowledgeBaseManager` and FAISS
+- [ ] Add hybrid re-ranking (semantic 60% + keyword 30% + recency 10%)
+- [ ] Implement relevance scoring
+- [ ] Cache search results (Redis)
+- [ ] Refactor `post_generator_service.py` to use semantic retrieval
+- [ ] Add unit tests for retrieval quality
+- [ ] Performance benchmarking
+
+**Acceptance Criteria:**
+- Content retrieval in <50ms (with cache) or <500ms (without)
+- 40-60% improvement in content relevance (measured by user feedback)
+- Seamless integration with existing FAISS index
+- Cache hit rate >60%
+
+**Files to Create:**
+- `app/services/content_generation/` (new directory)
+- `app/services/content_generation/__init__.py`
+- `app/services/content_generation/semantic_retriever.py`
+
+**Files to Modify:**
+- `app/services/post_generator_service.py`
+- `requirements.txt` (add redis, cachetools)
+
+**Impact:**
+- 🚀 10-50x faster search
+- 📈 40-60% better content relevance
+- 💰 Utilizes existing infrastructure
+- ⚡ Reduces generation time by 50%
+
+---
+
+#### 2. Advanced Prompt Engineering System
+**Priority:** P0 - Critical (Content Generation)
+**Estimated Time:** 2 days
+**Assignee:** Backend Developer with LLM expertise
+**Dependencies:** None
+
+**Problem:**
+Current prompts are generic and weak:
+```python
+system_prompt = f"You are a social media content expert for nonprofit organizations. "
+```
+
+This results in:
+- Inconsistent quality (40-90% variation)
+- Generic content
+- Poor brand voice adherence
+- Weak CTAs
+
+**Solution:**
+Implement structured, example-driven, chain-of-thought prompting system.
+
+**Tasks:**
+- [ ] Create `app/services/content_generation/prompt_engineer.py`
+- [ ] Design structured prompt templates with:
+  - Clear task definition
+  - Brand voice guidelines
+  - Few-shot examples (3-5 successful posts)
+  - Chain-of-thought reasoning
+  - Quality criteria
+  - Structured output format
+- [ ] Create prompt examples database (SQLite or JSON)
+- [ ] Implement brand voice injection
+- [ ] Add platform-specific best practices
+- [ ] Create nonprofit-specific guidance
+- [ ] Add compliance rules to prompts
+- [ ] Implement prompt versioning
+- [ ] A/B test prompt variations
+- [ ] Monitor and improve prompt performance
+
+**Acceptance Criteria:**
+- Generated content quality score >75/100
+- Brand voice consistency >80%
+- User acceptance rate >80% (content used without major edits)
+- CTA inclusion rate 100%
+- Appropriate tone adherence >90%
+
+**Files to Create:**
+- `app/services/content_generation/prompt_engineer.py`
+- `app/data/prompt_examples.json` (few-shot examples)
+- `app/data/brand_voice_templates.json`
+
+**Files to Modify:**
+- `app/services/content_generator.py`
+- `app/services/post_generator_service.py`
+
+**Impact:**
+- 📈 50-70% quality improvement
+- 🎯 Consistent brand voice
+- ✅ Better CTA integration
+- 🧠 Learns from successful posts
+
+---
+
+#### 3. Multi-Level Caching System
+**Priority:** P0 - Critical (Performance)
+**Estimated Time:** 1 day
+**Assignee:** Backend Developer
+**Dependencies:** None
+
+**Problem:**
+ZERO caching currently. Every request:
+- Re-runs TF-IDF analysis (expensive)
+- Re-calls LLM API ($$$)
+- Regenerates same content for same inputs
+- Users wait 5-15 seconds EVERY TIME
+
+**Solution:**
+Implement 3-tier caching: Memory (L1) → Redis (L2) → Database (L3)
+
+**Tasks:**
+- [ ] Set up Redis server (dev & production)
+- [ ] Create `app/services/content_generation/content_cache.py`
+- [ ] Implement `ContentGenerationCache` class with:
+  - L1: In-memory LRU cache (5 min TTL, 100 items)
+  - L2: Redis cache (1 hour TTL)
+  - L3: Database cache (1 day TTL)
+- [ ] Create deterministic cache key generation
+- [ ] Implement cache invalidation strategy
+- [ ] Add cache warming for common queries
+- [ ] Monitor cache hit rates
+- [ ] Add cache metrics to dashboard
+- [ ] Document cache strategy
+
+**Acceptance Criteria:**
+- Cache hit rate >70% within 1 week of launch
+- Generation time <500ms on cache hit (vs 5-15s without)
+- Cache invalidation works correctly
+- Redis memory usage <500MB
+
+**Files to Create:**
+- `app/services/content_generation/content_cache.py`
+- `deploy/redis.conf`
+
+**Files to Modify:**
+- `app/services/post_generator_service.py`
+- `app/services/content_generator.py`
+- `config.py` (add Redis config)
+- `requirements.txt` (add redis, cachetools)
+- `.env.example` (add REDIS_URL)
+
+**Impact:**
+- ⚡ 10-100x faster on cache hits
+- 💰 60-80% API cost reduction
+- 😊 Dramatically better UX
+- 📊 Scalable architecture
+
+---
+
+### 🔴 P0 Tasks - Other Critical Features
+
+#### 4. Complete Analytics Dashboard UI
 **Priority:** P0 - Critical
 **Estimated Time:** 2 days
 **Assignee:** Frontend Developer
@@ -268,9 +441,185 @@ This roadmap outlines the prioritized tasks needed to complete the Minimum Viabl
 
 ## Week 2: Polish & Security (Days 8-14)
 
-### 🟠 P1 Tasks
+### 🟠 P1 Tasks - Content Generation Quality
 
-#### 7. Implement Content Safety Filters
+#### 5. Content Quality Scoring System
+**Priority:** P1 - High (Content Generation)
+**Estimated Time:** 2 days
+**Assignee:** Backend Developer + Data Scientist
+**Dependencies:** Tasks #1-#3 (Semantic retrieval, prompts, caching)
+
+**Problem:**
+No way to evaluate content quality before showing to users. Results in:
+- Users see low-quality content (~20% of generations)
+- No confidence in AI-generated content
+- Manual filtering required
+- Can't predict which posts will perform well
+
+**Solution:**
+Build ML-based quality scoring system with multiple metrics.
+
+**Tasks:**
+- [ ] Create `app/services/content_generation/quality_scorer.py`
+- [ ] Implement readability scoring (Flesch-Kincaid)
+- [ ] Add sentiment analysis (nonprofit-appropriate sentiment)
+- [ ] Build engagement prediction model (based on historical data)
+- [ ] Create hook strength analyzer (first 10 words)
+- [ ] Implement CTA effectiveness scoring
+- [ ] Add hashtag quality evaluation
+- [ ] Build brand alignment checker
+- [ ] Create overall weighted score
+- [ ] Add quality gate (reject scores <60/100)
+- [ ] Build simple ML model for engagement prediction
+- [ ] Test scoring accuracy against real data
+
+**Acceptance Criteria:**
+- Quality scores correlate with user acceptance >70%
+- Engagement prediction accuracy >60%
+- All content scored before display
+- Low-quality content (<60) flagged or filtered
+- Scoring adds <100ms to generation time
+
+**Files to Create:**
+- `app/services/content_generation/quality_scorer.py`
+- `app/ml/` (new directory)
+- `app/ml/__init__.py`
+- `app/ml/engagement_predictor.py`
+- `app/ml/models/` (for trained models)
+
+**Files to Modify:**
+- `app/services/post_generator_service.py`
+- `app/routes/content_generation.py`
+- `requirements.txt` (add textstat, vaderSentiment, scikit-learn)
+
+**Impact:**
+- ✅ Filter low-quality content
+- 📈 Increase user confidence
+- 🎯 Predict performance
+- 🛡️ Risk mitigation
+
+---
+
+#### 6. Multi-Variation Generation System
+**Priority:** P1 - High (Content Generation)
+**Estimated Time:** 2 days
+**Assignee:** Backend Developer
+**Dependencies:** Task #5 (Quality Scoring)
+
+**Problem:**
+Can only generate one post at a time. Users need options for A/B testing:
+- Can't compare different approaches
+- No A/B test support
+- Users stuck with first generation
+- Missing 20-40% potential engagement
+
+**Solution:**
+Generate 3-5 variations concurrently with different strategies, ranked by quality.
+
+**Tasks:**
+- [ ] Create `app/services/content_generation/variation_generator.py`
+- [ ] Implement async/concurrent LLM calls
+- [ ] Define variation strategies:
+  - Emotional appeal + story hook
+  - Data-driven + statistics hook
+  - Question-based + curiosity hook
+  - Urgency + time-sensitive hook
+  - Social proof + testimonial hook
+- [ ] Generate 3-5 variations in parallel
+- [ ] Score each variation with quality scorer
+- [ ] Rank variations by predicted performance
+- [ ] Add UI to display all variations
+- [ ] Allow users to select or edit any variation
+- [ ] Track which variations users choose
+- [ ] Add A/B test tracking (which performed better)
+- [ ] Learn from variation performance
+
+**Acceptance Criteria:**
+- Generate 3 variations in <5 seconds (vs 15s sequential)
+- All variations scored and ranked
+- UI shows variations with quality scores
+- Users can select any variation
+- A/B test data tracked for learning
+
+**Files to Create:**
+- `app/services/content_generation/variation_generator.py`
+
+**Files to Modify:**
+- `app/routes/content_generation.py`
+- `app/templates/content_generation/generate.html`
+- `app/static/js/content_generation.js` (new)
+- `requirements.txt` (add asyncio, aiohttp)
+
+**Impact:**
+- 🚀 3x faster than sequential
+- 📊 A/B testing ready
+- ✨ Multiple quality options
+- 📈 20-40% better engagement
+
+---
+
+#### 7. Intelligent Hashtag Research System
+**Priority:** P1 - High (Content Generation)
+**Estimated Time:** 1 day
+**Assignee:** Backend Developer
+**Dependencies:** None
+
+**Problem:**
+Current hashtag generation is naive:
+```python
+hashtags = [term.replace(' ', '') for term in selected_topic['terms'][:5]]
+```
+
+Results in:
+- Hashtags that don't trend
+- Poor discoverability
+- Amateur appearance
+- Missed reach potential
+
+**Solution:**
+Research trending hashtags, analyze competitors, score by relevance and reach.
+
+**Tasks:**
+- [ ] Create `app/services/content_generation/hashtag_researcher.py`
+- [ ] Extract keywords from content (TF-IDF or YAKE)
+- [ ] Research trending hashtags per keyword (cache 1 hour)
+  - Use platform APIs or third-party services
+  - Mock with reasonable defaults for MVP
+- [ ] Analyze competitor hashtag usage patterns
+- [ ] Score hashtags by:
+  - Relevance to content (0-100)
+  - Trending score (0-100)
+  - Competition level (0-100, lower is better)
+  - Estimated reach
+- [ ] Return top 5-10 hashtags with reasoning
+- [ ] Cache trending data (Redis, 1 hour TTL)
+- [ ] Add hashtag analytics to dashboard
+
+**Acceptance Criteria:**
+- Hashtags relevant to content >80%
+- Include at least 1-2 trending hashtags when available
+- Estimated reach provided for each hashtag
+- Cache hit rate >60%
+- Generation adds <200ms to total time
+
+**Files to Create:**
+- `app/services/content_generation/hashtag_researcher.py`
+
+**Files to Modify:**
+- `app/services/post_generator_service.py`
+- `requirements.txt` (add yake, optional: RiteTag API client)
+
+**Impact:**
+- 📈 Increase post discoverability
+- 🔍 Better reach
+- 💡 Data-driven hashtag selection
+- 🏆 Professional quality
+
+---
+
+### 🟠 P1 Tasks - Other Critical Features
+
+#### 8. Implement Content Safety Filters
 **Priority:** P1 - High
 **Estimated Time:** 2 days
 **Assignee:** Backend Developer
